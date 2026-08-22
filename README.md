@@ -1,0 +1,1566 @@
+-- ====================== KIOP | FTAP | FULL BUILD v8 ======================
+if game.CoreGui:FindFirstChild("Obsidian") then game.CoreGui.Obsidian:Destroy() end
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
+
+local LocalPlayer = Players.LocalPlayer
+
+local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
+local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
+local Options = Library.Options
+local Toggles = Library.Toggles
+
+local Window = Library:CreateWindow({
+    Title = "Kiop", Footer = "Kiop | FTAP", Icon = "rbxassetid://116176143011396",
+    NotifySide = "Right", ShowCustomCursor = false, EnableCompacting = true, SidebarCompacted = true,
+})
+
+local Tabs = {
+    Defense = Window:AddTab("Defense", "shield"),
+    Target = Window:AddTab("Target", "sword"),
+    Visuals = Window:AddTab("Visuals", "eye"),
+    UISettings = Window:AddTab("UI Settings", "cog")
+}
+
+-- ====================== DEFENSE: ANTI GRABS ======================
+local DefGroup = Tabs.Defense:AddLeftGroupbox("Anti Grabs", "shield-plus")
+
+local v1Active, v1Task = false, nil
+DefGroup:AddCheckbox("AntiGrabV1", {
+    Text = "Anti Grab (Normal)", Default = false,
+    Callback = function(Value)
+        v1Active = Value
+        if Value then
+            v1Task = task.spawn(function()
+                while v1Active do
+                    pcall(function()
+                        local isHeld = LocalPlayer:FindFirstChild("IsHeld")
+                        if isHeld and isHeld.Value then
+                            local char = LocalPlayer.Character
+                            local hum = char and char:FindFirstChild("Humanoid")
+                            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                            if hum and hrp then
+                                ReplicatedStorage.CharacterEvents.Struggle:FireServer(LocalPlayer)
+                                ReplicatedStorage.CharacterEvents.RagdollRemote:FireServer(hrp, 0.00000000001)
+                                hum.Sit = false
+                            end
+                        end
+                    end)
+                    task.wait(0.05)
+                end
+            end)
+        else
+            if v1Task then task.cancel(v1Task); v1Task = nil end
+        end
+    end
+})
+
+-- ANTI GRAB V2 (REINFORCED)
+local ag2Enabled = false
+local ag2HeldConn = nil
+local ag2CharWatch = nil
+
+local function StartAG2()
+    local BeingHeld = LocalPlayer:FindFirstChild("IsHeld")
+    if not BeingHeld then return end
+    if ag2HeldConn then ag2HeldConn:Disconnect() end
+    ag2HeldConn = BeingHeld:GetPropertyChangedSignal("Value"):Connect(function()
+        if not ag2Enabled or not BeingHeld.Value then return end
+        local Char = LocalPlayer.Character
+        if not Char then return end
+        local Root = Char:FindFirstChild("HumanoidRootPart")
+        local Hum = Char:FindFirstChildOfClass("Humanoid")
+        if not (Root and Hum) then return end
+
+        for _, part in pairs(Char:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = false end
+        end
+
+        task.spawn(function()
+            while ag2Enabled and BeingHeld.Value do
+                pcall(function()
+                    ReplicatedStorage.CharacterEvents.Struggle:FireServer()
+                    ReplicatedStorage.CharacterEvents.RagdollRemote:FireServer(Root, 0)
+                    local gce = ReplicatedStorage:FindFirstChild("GameCorrectionEvents")
+                    if gce then
+                        local sav = gce:FindFirstChild("StopAllVelocity")
+                        if sav then sav:FireServer() end
+                    end
+                end)
+                task.wait()
+            end
+        end)
+
+        task.spawn(function()
+            while ag2Enabled and BeingHeld.Value do
+                pcall(function()
+                    Hum.Sit = false
+                    Hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+                    Hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+                    if Root then
+                        Root.Anchored = true
+                        Root.AssemblyLinearVelocity = Vector3.zero
+                        Root.AssemblyAngularVelocity = Vector3.zero
+                    end
+                end)
+                task.wait()
+            end
+            if Root then Root.Anchored = false end
+        end)
+    end)
+end
+
+DefGroup:AddCheckbox("AntiGrabV2", {
+    Text = "Anti Grab V2 (Reinforced)",
+    Default = false,
+    Callback = function(Value)
+        ag2Enabled = Value
+        if Value then
+            StartAG2()
+            if ag2CharWatch then ag2CharWatch:Disconnect() end
+            ag2CharWatch = LocalPlayer.CharacterAdded:Connect(function()
+                task.wait(1)
+                if ag2Enabled then StartAG2() end
+            end)
+        else
+            if ag2HeldConn then ag2HeldConn:Disconnect(); ag2HeldConn = nil end
+            if ag2CharWatch then ag2CharWatch:Disconnect(); ag2CharWatch = nil end
+            local char = LocalPlayer.Character
+            if char then
+                pcall(function()
+                    for _, part in pairs(char:GetDescendants()) do
+                        if part:IsA("BasePart") then part.CanCollide = true end
+                    end
+                    local root = char:FindFirstChild("HumanoidRootPart")
+                    if root then root.Anchored = false end
+                end)
+            end
+        end
+    end
+})
+
+-- ANTI RAGDOLL (отключает BallSocketConstraint + следит за Ragdolled)
+local arEnabled = false
+local arConns = {}
+
+local function applyAntiRagdoll(char)
+    if not char or not arEnabled then return end
+    task.spawn(function()
+        local hum = char:WaitForChild("Humanoid", 5)
+        if not hum then return end
+        local ragVal = hum:WaitForChild("Ragdolled", 5)
+
+        local function disableConstraints()
+            for _, v in pairs(char:GetChildren()) do
+                if v:IsA("BasePart") and v:FindFirstChild("BallSocketConstraint") and v.Name ~= "Head" then
+                    v.BallSocketConstraint.Enabled = false
+                    if v:FindFirstChild("RagdollLimbPart") then
+                        v.RagdollLimbPart.WeldConstraint.Enabled = false
+                    end
+                end
+            end
+        end
+
+        disableConstraints()
+        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+
+        if ragVal then
+            table.insert(arConns, ragVal.Changed:Connect(function()
+                if ragVal.Value and arEnabled then
+                    task.spawn(function()
+                        disableConstraints()
+                        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+                    end)
+                end
+            end))
+        end
+    end)
+end
+
+DefGroup:AddCheckbox("AntiRagdoll", {
+    Text = "Anti Ragdoll",
+    Default = false,
+    Callback = function(Value)
+        arEnabled = Value
+        for _, c in ipairs(arConns) do pcall(function() c:Disconnect() end) end
+        arConns = {}
+        if Value then
+            applyAntiRagdoll(LocalPlayer.Character)
+            table.insert(arConns, LocalPlayer.CharacterAdded:Connect(function(c) applyAntiRagdoll(c) end))
+        else
+            -- восстановить_constraints
+            local char = LocalPlayer.Character
+            if char then
+                pcall(function()
+                    for _, v in pairs(char:GetChildren()) do
+                        if v:IsA("BasePart") and v:FindFirstChild("BallSocketConstraint") and v.Name ~= "Head" then
+                            v.BallSocketConstraint.Enabled = true
+                            if v:FindFirstChild("RagdollLimbPart") then
+                                v.RagdollLimbPart.WeldConstraint.Enabled = true
+                            end
+                        end
+                    end
+                end)
+            end
+        end
+    end
+})
+
+local ownActive, ownTask = false, nil
+DefGroup:AddCheckbox("AntiOwnership", {
+    Text = "Anti Ownership", Default = false,
+    Callback = function(Value)
+        ownActive = Value
+        if Value then
+            ownTask = task.spawn(function()
+                while ownActive do
+                    pcall(function()
+                        local char = LocalPlayer.Character
+                        if char and char:FindFirstChild("Head") then
+                            if char.Head:FindFirstChild("PartOwner") then
+                                ReplicatedStorage.CharacterEvents.Struggle:FireServer(LocalPlayer)
+                                for _, part in pairs(char:GetChildren()) do
+                                    if part:IsA("BasePart") then part.Anchored = true end
+                                end
+                                local isHeld = LocalPlayer:FindFirstChild("IsHeld")
+                                while isHeld and isHeld.Value and ownActive do task.wait() end
+                                for _, part in pairs(char:GetChildren()) do
+                                    if part:IsA("BasePart") then part.Anchored = false end
+                                end
+                            end
+                        end
+                    end)
+                    task.wait(0.1)
+                end
+            end)
+        else
+            if ownTask then task.cancel(ownTask); ownTask = nil end
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in pairs(char:GetChildren()) do
+                    if part:IsA("BasePart") then part.Anchored = false end
+                end
+            end
+        end
+    end
+})
+
+DefGroup:AddCheckbox("AntiLag", {
+    Text = "Anti Lag",
+    Default = false,
+    Callback = function(Value)
+        if Value then
+            pcall(function()
+                LocalPlayer.PlayerScripts.CharacterAndBeamMove.Disabled = true
+                for _, plr in pairs(Players:GetPlayers()) do
+                    if plr.Character and plr.Character:FindFirstChild("GrabParts") then
+                        plr.Character.GrabParts:Destroy()
+                    end
+                end
+            end)
+        else
+            pcall(function()
+                LocalPlayer.PlayerScripts.CharacterAndBeamMove.Disabled = false
+            end)
+        end
+    end
+})
+
+-- ====================== DEFENSE: EXTRA ======================
+local DefExtra = Tabs.Defense:AddRightGroupbox("Extra Defense", "shield")
+
+local antiExplodeConn = nil
+DefExtra:AddCheckbox("AntiExplosion", {
+    Text = "Anti Explosion",
+    Default = false,
+    Callback = function(on)
+        if antiExplodeConn then antiExplodeConn:Disconnect(); antiExplodeConn = nil end
+        if on then
+            antiExplodeConn = Workspace.ChildAdded:Connect(function(model)
+                pcall(function()
+                    if model.Name ~= "Part" then return end
+                    local char = LocalPlayer.Character
+                    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                    if not hrp then return end
+                    if (model.Position - hrp.Position).Magnitude <= 20 then
+                        hrp.Anchored = true
+                        task.wait(0.01)
+                        local ra = char:FindFirstChild("Right Arm")
+                        local rlp = ra and ra:FindFirstChild("RagdollLimbPart")
+                        if rlp then
+                            local t0 = tick()
+                            while rlp.CanCollide and tick() - t0 < 2 do
+                                task.wait(0.001)
+                            end
+                        else
+                            task.wait(0.1)
+                        end
+                        hrp.Anchored = false
+                    end
+                end)
+            end)
+        end
+    end
+})
+
+local hookBurnConn = nil
+local burnCharConn = nil
+local antiBurnOn = false
+
+local function hookBurn(char)
+    if not antiBurnOn or not char then return end
+    task.spawn(function()
+        local hum = char:WaitForChild("Humanoid", 5)
+        local hrp = char:WaitForChild("HumanoidRootPart", 5)
+        if not (hum and hrp) then return end
+        local fireDebounce = hum:WaitForChild("FireDebounce", 5)
+        if not fireDebounce then return end
+        if hookBurnConn then hookBurnConn:Disconnect() end
+        hookBurnConn = fireDebounce.Changed:Connect(function(isBurning)
+            if not antiBurnOn or not isBurning then return end
+            pcall(function()
+                local oldCF = hrp.CFrame
+                local plots = Workspace:FindFirstChild("Plots")
+                if not plots then return end
+                for _, plot in ipairs(plots:GetChildren()) do
+                    local barrier = plot:FindFirstChild("Barrier")
+                    local pb = barrier and barrier:FindFirstChild("PlotBarrier")
+                    if pb and pb:IsA("BasePart") then
+                        char:PivotTo(pb.CFrame * CFrame.new(0, 6, 0))
+                        task.wait(0.3)
+                        local firePart = char:FindFirstChild("FirePlayerPart", true)
+                        if firePart then
+                            for _, obj in ipairs(firePart:GetChildren()) do
+                                if obj:IsA("Sound") then obj:Stop() end
+                                if obj:IsA("Light") or obj:IsA("ParticleEmitter") then obj.Enabled = false end
+                            end
+                            if firePart:FindFirstChild("CanBurn") then firePart.CanBurn.Value = false end
+                            if hum:FindFirstChild("FireDebounce") then hum.FireDebounce.Value = false end
+                        end
+                        task.wait(0.6)
+                        if char and char.Parent then
+                            char:PivotTo(oldCF)
+                        end
+                        return
+                    end
+                end
+            end)
+        end)
+    end)
+end
+
+DefExtra:AddCheckbox("AntiBurn", {
+    Text = "Anti Burn",
+    Default = false,
+    Callback = function(on)
+        antiBurnOn = on
+        if on then
+            hookBurn(LocalPlayer.Character)
+            if burnCharConn then burnCharConn:Disconnect() end
+            burnCharConn = LocalPlayer.CharacterAdded:Connect(function(c) hookBurn(c) end)
+        else
+            if hookBurnConn then hookBurnConn:Disconnect(); hookBurnConn = nil end
+            if burnCharConn then burnCharConn:Disconnect(); burnCharConn = nil end
+        end
+    end
+})
+
+local voidOrig = nil
+DefExtra:AddCheckbox("AntiVoid", {
+    Text = "Anti Void",
+    Default = false,
+    Callback = function(v)
+        pcall(function()
+            if v then
+                if not voidOrig then voidOrig = Workspace.FallenPartsDestroyHeight end
+                Workspace.FallenPartsDestroyHeight = 0/0
+            else
+                Workspace.FallenPartsDestroyHeight = voidOrig or -100
+            end
+        end)
+    end
+})
+
+-- ====================== DEFENSE: ANTI KICK ITEMS ======================
+local DefItems = Tabs.Defense:AddRightGroupbox("Anti Kick Items", "package")
+
+local bananaActive, bananaTask = false, nil
+DefItems:AddCheckbox("AntiBanana", {
+    Text = "Anti Banana (Item)",
+    Default = false,
+    Callback = function(Value)
+        bananaActive = Value
+        if Value then
+            bananaTask = task.spawn(function()
+                while bananaActive do
+                    pcall(function()
+                        local char = LocalPlayer.Character
+                        if char then
+                            local hum = char:FindFirstChildOfClass("Humanoid")
+                            local hrp = char:FindFirstChild("HumanoidRootPart")
+                            if hum and hrp and hum.Health > 0 then
+                                hum.Sit = true
+                                hum:ChangeState(Enum.HumanoidStateType.Running)
+                                local Vec = Workspace.CurrentCamera.CFrame.LookVector
+                                hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + Vector3.new(Vec.X, 0, Vec.Z))
+                            end
+                        end
+                    end)
+                    task.wait()
+                end
+            end)
+        else
+            if bananaTask then task.cancel(bananaTask); bananaTask = nil end
+        end
+    end
+})
+
+local snowActive, snowTask = false, nil
+DefItems:AddCheckbox("AntiSnowball", {
+    Text = "Anti Snowball (Item)",
+    Default = false,
+    Callback = function(Value)
+        snowActive = Value
+        if Value then
+            snowTask = task.spawn(function()
+                while snowActive do
+                    pcall(function()
+                        local char = LocalPlayer.Character
+                        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                        if hrp then
+                            ReplicatedStorage.CharacterEvents.RagdollRemote:FireServer(hrp, 0.5)
+                        end
+                    end)
+                    task.wait(0.05)
+                end
+            end)
+        else
+            if snowTask then task.cancel(snowTask); snowTask = nil end
+        end
+    end
+})
+
+local blobKickActive, blobKickTask = false, nil
+
+local function fireDropBlob(item, hrp)
+    local blobScript = item:FindFirstChild("BlobmanSeatAndOwnerScript")
+    local rightDetector = item:FindFirstChild("RightDetector")
+    local leftDetector = item:FindFirstChild("LeftDetector")
+    if blobScript and rightDetector and leftDetector then
+        local dropEvent = blobScript:FindFirstChild("CreatureDrop")
+        local rightWeld = rightDetector:FindFirstChild("RightWeld")
+        local leftWeld = leftDetector:FindFirstChild("LeftWeld")
+        if dropEvent then
+            if rightWeld then dropEvent:FireServer(rightWeld, hrp) end
+            if leftWeld then dropEvent:FireServer(leftWeld, hrp) end
+        end
+        local ce = ReplicatedStorage:FindFirstChild("CharacterEvents")
+        if ce then
+            local se = ce:FindFirstChild("Struggle")
+            if se then se:FireServer(LocalPlayer) end
+        end
+    end
+end
+
+DefItems:AddCheckbox("AntiBlobKick", {
+    Text = "Anti Blob Kick",
+    Default = false,
+    Callback = function(Value)
+        blobKickActive = Value
+        if Value then
+            pcall(function()
+                local char = LocalPlayer.Character
+                if char and not char:FindFirstChild("TruePositionPart") then
+                    local truePosPart = Instance.new("Part")
+                    truePosPart.Parent = char
+                    truePosPart.Name = "TruePositionPart"
+                    truePosPart.Anchored = true
+                    truePosPart.Transparency = 0.8
+                    truePosPart.CanCollide = false
+                    truePosPart.Size = Vector3.new(0.1, 0.1, 0.1)
+                    truePosPart.CFrame = CFrame.new(0, -10000000, 0)
+                end
+            end)
+            blobKickTask = task.spawn(function()
+                while blobKickActive do
+                    pcall(function()
+                        local char = LocalPlayer.Character
+                        if char then
+                            local hrp = char:FindFirstChild("HumanoidRootPart")
+                            local truePosPart = char:FindFirstChild("TruePositionPart")
+                            if hrp and truePosPart then
+                                local rootAttachment = hrp:FindFirstChild("RootAttachment")
+                                if rootAttachment and rootAttachment.Parent == hrp then
+                                    rootAttachment.Parent = truePosPart
+                                end
+                                local isGrabbed = false
+                                for _, part in pairs(char:GetChildren()) do
+                                    if part:IsA("Part") and part.Massless then
+                                        part.Massless = false
+                                        isGrabbed = true
+                                    end
+                                end
+                                if isGrabbed then
+                                    hrp.AssemblyLinearVelocity = Vector3.new(0, 15000000, 0)
+                                    local plotItems = Workspace:FindFirstChild("PlotItems")
+                                    if plotItems then
+                                        for _, plot in pairs(plotItems:GetChildren()) do
+                                            if plot.Name ~= "PlayersInPlots" then
+                                                for _, item in pairs(plot:GetChildren()) do
+                                                    if item.Name == "CreatureBlobman" then
+                                                        fireDropBlob(item, hrp)
+                                                    end
+                                                end
+                                            end
+                                        end
+                                    end
+                                    for _, plr in pairs(Players:GetPlayers()) do
+                                        local toyFolder = Workspace:FindFirstChild(plr.Name .. "SpawnedInToys")
+                                        if toyFolder then
+                                            for _, item in pairs(toyFolder:GetChildren()) do
+                                                if item.Name == "CreatureBlobman" then
+                                                    fireDropBlob(item, hrp)
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end)
+                    task.wait()
+                end
+            end)
+        else
+            if blobKickTask then task.cancel(blobKickTask); blobKickTask = nil end
+            pcall(function()
+                local char = LocalPlayer.Character
+                if char then
+                    local hrp = char:FindFirstChild("HumanoidRootPart")
+                    local truePosPart = char:FindFirstChild("TruePositionPart")
+                    if hrp and truePosPart then
+                        local rootAttachment = truePosPart:FindFirstChild("RootAttachment")
+                        if rootAttachment then rootAttachment.Parent = hrp end
+                        truePosPart:Destroy()
+                    end
+                end
+            end)
+        end
+    end
+})
+
+DefItems:AddCheckbox("AntiSticky", {
+    Text = "Anti Sticky (Item)",
+    Default = false,
+    Callback = function(Value)
+        pcall(function()
+            local script = LocalPlayer.PlayerScripts:FindFirstChild("StickyPartsTouchDetection")
+            if script then script.Disabled = Value end
+        end)
+    end
+})
+
+local auraConnection = nil
+DefItems:AddCheckbox("AntiBlobAura", {
+    Text = "Anti Blobman Aura",
+    Default = false,
+    Callback = function(enabled)
+        if auraConnection then
+            auraConnection:Disconnect()
+            auraConnection = nil
+        end
+        if enabled then
+            auraConnection = RunService.Heartbeat:Connect(function()
+                local myChar = LocalPlayer.Character
+                local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+                if not myRoot then return end
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer then
+                        local pChar = player.Character
+                        local pRoot = pChar and pChar:FindFirstChild("HumanoidRootPart")
+                        local pHum = pChar and pChar:FindFirstChild("Humanoid")
+                        if pRoot and pHum and pHum.SeatPart then
+                            local seatParent = pHum.SeatPart.Parent
+                            if seatParent and seatParent.Name == "CreatureBlobman" then
+                                if (pRoot.Position - myRoot.Position).Magnitude <= 19 then
+                                    local GE = ReplicatedStorage:FindFirstChild("GrabEvents")
+                                    if GE then
+                                        local sno = GE:FindFirstChild("SetNetworkOwner")
+                                        if sno then
+                                            task.spawn(function()
+                                                pcall(function()
+                                                    sno:FireServer(pRoot, pRoot.CFrame)
+                                                end)
+                                            end)
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end
+})
+
+local function getCorrectionNotify()
+    local gce = ReplicatedStorage:FindFirstChild("GameCorrectionEvents")
+    return gce and gce:FindFirstChild("GameCorrectionsNotify")
+end
+
+DefItems:AddCheckbox("AutoReset", {
+    Text = "Auto Reset (Anti Ban)",
+    Default = false,
+    Callback = function(v)
+        if _G.KiopAutoResetCon then _G.KiopAutoResetCon:Disconnect(); _G.KiopAutoResetCon = nil end
+        if v then
+            local remote = getCorrectionNotify()
+            if not remote then return end
+            _G.KiopAutoResetCon = remote.OnClientEvent:Connect(function(r)
+                if r == "Flying" then
+                    pcall(function()
+                        local char = LocalPlayer.Character
+                        local hum = char and char:FindFirstChildOfClass("Humanoid")
+                        if hum then
+                            Library:Notify({Title = "Kiop", Description = "Resetting to prevent ban", Duration = 3})
+                            hum.Health = 0
+                        end
+                    end)
+                end
+            end)
+        end
+    end
+})
+
+DefItems:AddCheckbox("AutoLeave", {
+    Text = "Auto Leave (Anti Ban)",
+    Default = false,
+    Callback = function(v)
+        if _G.KiopAutoLeaveCon then _G.KiopAutoLeaveCon:Disconnect(); _G.KiopAutoLeaveCon = nil end
+        if v then
+            local remote = getCorrectionNotify()
+            if not remote then return end
+            local warnTimestamps = {}
+            _G.KiopAutoLeaveCon = remote.OnClientEvent:Connect(function(r)
+                if r == "Flying" then
+                    local currentTime = os.clock()
+                    table.insert(warnTimestamps, currentTime)
+                    for i = #warnTimestamps, 1, -1 do
+                        if currentTime - warnTimestamps[i] > 1 then
+                            table.remove(warnTimestamps, i)
+                        end
+                    end
+                    if #warnTimestamps >= 3 then
+                        LocalPlayer:Kick("Kiop Safety: Disconnected to prevent ban.")
+                    end
+                end
+            end)
+        end
+    end
+})
+
+-- ====================== TARGET TAB ======================
+local TargetGroup = Tabs.Target:AddLeftGroupbox("Target", "crosshair")
+local BlobGroup = Tabs.Target:AddRightGroupbox("Blobman", "bot")
+local selectedTarget = nil
+
+local function getList()
+    local l = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then table.insert(l, p.Name) end
+    end
+    return l
+end
+
+local TargetDrop = TargetGroup:AddDropdown("TargetSelect", {
+    Text = "Select Target", Values = getList(), Default = "",
+    Callback = function(v) selectedTarget = v end
+})
+TargetGroup:AddButton({Text = "Refresh", Func = function() TargetDrop:SetValues(getList()) end})
+
+local sitActive, sitTask = false, nil
+BlobGroup:AddCheckbox("AutoSitBlobman", {
+    Text = "Auto Sit Blobman", Default = false,
+    Callback = function(Value)
+        sitActive = Value
+        if Value then
+            sitTask = task.spawn(function()
+                while sitActive do
+                    pcall(function()
+                        local Char = LocalPlayer.Character
+                        local Hum = Char and Char:FindFirstChildOfClass("Humanoid")
+                        local Root = Char and Char:FindFirstChild("HumanoidRootPart")
+                        if Hum and Root and not Hum.SeatPart then
+                            local folder = Workspace:FindFirstChild(LocalPlayer.Name .. "SpawnedInToys")
+                            local blob = folder and folder:FindFirstChild("CreatureBlobman")
+                            if not blob then
+                                ReplicatedStorage.MenuToys.SpawnToyRemoteFunction:InvokeServer("CreatureBlobman", Root.CFrame * CFrame.new(0, 5, 5), Vector3.zero)
+                            else
+                                local seat = blob:FindFirstChildWhichIsA("VehicleSeat")
+                                if seat then
+                                    Root.CFrame = seat.CFrame * CFrame.new(0, 1, 0)
+                                    seat:Sit(Hum)
+                                end
+                            end
+                        end
+                    end)
+                    task.wait(0.1)
+                end
+            end)
+        else
+            if sitTask then task.cancel(sitTask); sitTask = nil end
+        end
+    end
+})
+
+-- GRAB + BLOB (TURBO)
+local grabBlobActive = false
+local grabBlobTask = nil
+local customKickHeight = 25
+local blobSpamSpeed = 3
+
+TargetGroup:AddInput("KickHeight", {
+    Text = "Custom Kick Height",
+    Default = "25",
+    Placeholder = "Enter height (e.g. 50)",
+    Numeric = true, Finished = true,
+    Callback = function(Value)
+        local num = tonumber(Value)
+        if num then customKickHeight = num else customKickHeight = 25 end
+    end
+})
+
+BlobGroup:AddSlider("BlobSpamSpeed", {
+    Text = "Spam Speed (x1 = обычная)",
+    Min = 1, Max = 10, Default = 3, Rounding = 0,
+    Callback = function(Value) blobSpamSpeed = Value end
+})
+
+BlobGroup:AddCheckbox("GrabBlob", {
+    Text = "Grab + Blob",
+    Default = false,
+    Callback = function(on)
+        grabBlobActive = on
+        if on then
+            if not selectedTarget then
+                Library:Notify({Title = "Error", Content = "Select target first", Duration = 3})
+                return
+            end
+            grabBlobTask = task.spawn(function()
+                local GE = ReplicatedStorage:FindFirstChild("GrabEvents")
+                local myChar = LocalPlayer.Character
+                local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+                if not myRoot then return end
+                local savedPos = myRoot.CFrame
+                local dragging = false
+                local grabStartTime = 0
+                local blobman, grab, drop = nil, nil, nil
+                local L_Det, R_Det, L_Weld, R_Weld = nil, nil, nil, nil
+
+                while grabBlobActive do
+                    local target = selectedTarget and Players:FindFirstChild(selectedTarget)
+                    if not target or not target.Parent or not target.Character then break end
+                    local tChar = target.Character
+                    local tRoot = tChar:FindFirstChild("HumanoidRootPart")
+                    local tHum = tChar:FindFirstChild("Humanoid")
+                    local myHum = myChar and myChar:FindFirstChild("Humanoid")
+                    local seat = myHum and myHum.SeatPart
+
+                    if tRoot and tHum and tHum.Health > 0 then
+                        tRoot.AssemblyLinearVelocity = Vector3.zero
+                        tRoot.Velocity = Vector3.zero
+
+                        if seat then
+                            local cacheOK = (blobman ~= nil and blobman == seat.Parent
+                                and grab ~= nil and grab.Parent ~= nil
+                                and drop ~= nil and drop.Parent ~= nil
+                                and L_Det ~= nil and L_Det.Parent ~= nil
+                                and R_Det ~= nil and R_Det.Parent ~= nil
+                                and L_Weld ~= nil and L_Weld.Parent ~= nil
+                                and R_Weld ~= nil and R_Weld.Parent ~= nil)
+                            if not cacheOK then
+                                blobman = seat.Parent
+                                local remoteFolder = blobman and blobman:FindFirstChild("BlobmanSeatAndOwnerScript")
+                                grab = remoteFolder and remoteFolder:FindFirstChild("CreatureGrab")
+                                drop = remoteFolder and remoteFolder:FindFirstChild("CreatureDrop")
+                                L_Det = blobman and blobman:FindFirstChild("LeftDetector")
+                                R_Det = blobman and blobman:FindFirstChild("RightDetector")
+                                L_Weld = L_Det and (L_Det:FindFirstChild("LeftWeld") or L_Det:FindFirstChild("RigidConstraint"))
+                                R_Weld = R_Det and (R_Det:FindFirstChild("RightWeld") or R_Det:FindFirstChild("RigidConstraint"))
+                            end
+                            if grab and drop and L_Weld and R_Weld then
+                                pcall(function()
+                                    for _ = 1, blobSpamSpeed do
+                                        grab:FireServer(L_Det, tRoot, L_Weld)
+                                        grab:FireServer(R_Det, tRoot, R_Weld)
+                                        drop:FireServer(L_Weld, tRoot)
+                                        drop:FireServer(R_Weld, tRoot)
+                                    end
+                                end)
+                            end
+                        end
+
+                        if not dragging then
+                            myRoot.CFrame = tRoot.CFrame
+                            if GE then
+                                pcall(function()
+                                    tHum.PlatformStand = true
+                                    GE.SetNetworkOwner:FireServer(tRoot, myRoot.CFrame)
+                                    GE.CreateGrabLine:FireServer(tRoot, Vector3.zero, tRoot.Position, false)
+                                end)
+                            end
+                            if grabStartTime == 0 then grabStartTime = tick() end
+                            if tick() - grabStartTime > 0.3 then
+                                dragging = true
+                                grabStartTime = 0
+                            end
+                        else
+                            local lockPos = savedPos * CFrame.new(0, customKickHeight, 0)
+                            myRoot.CFrame = savedPos
+                            tRoot.CFrame = lockPos
+                            if GE then
+                                pcall(function()
+                                    tHum.PlatformStand = true
+                                    GE.SetNetworkOwner:FireServer(tRoot, lockPos)
+                                    GE.DestroyGrabLine:FireServer(tRoot)
+                                    GE.CreateGrabLine:FireServer(tRoot, Vector3.zero, tRoot.Position, false)
+                                end)
+                            end
+                        end
+                    else
+                        dragging = false
+                        grabStartTime = 0
+                    end
+                    RunService.Heartbeat:Wait()
+                end
+
+                if myRoot and savedPos then
+                    myRoot.CFrame = savedPos
+                end
+                grabBlobActive = false
+            end)
+        else
+            if grabBlobTask then task.cancel(grabBlobTask); grabBlobTask = nil end
+        end
+    end
+})
+
+-- KILL + BLOB
+local killBlobActive = false
+local killBlobTask = nil
+
+BlobGroup:AddCheckbox("KillBlob", {
+    Text = "Kill + Blob",
+    Default = false,
+    Callback = function(on)
+        killBlobActive = on
+        if on then
+            if not selectedTarget then
+                Library:Notify({Title = "Error", Description = "Select target first", Duration = 3})
+                return
+            end
+            killBlobTask = task.spawn(function()
+                local GE = ReplicatedStorage:FindFirstChild("GrabEvents")
+                local myChar = LocalPlayer.Character
+                local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+                if not myRoot then return end
+                local savedPos = myRoot.CFrame
+                local phase = 0
+                local phaseStart = 0
+
+                while killBlobActive do
+                    local target = selectedTarget and Players:FindFirstChild(selectedTarget)
+                    if not target or not target.Parent or not target.Character then break end
+                    local tChar = target.Character
+                    local tRoot = tChar:FindFirstChild("HumanoidRootPart")
+                    local tHum = tChar:FindFirstChild("Humanoid")
+                    local myHum = myChar and myChar:FindFirstChild("Humanoid")
+                    local seat = myHum and myHum.SeatPart
+
+                    if not (tRoot and tHum) or tHum.Health <= 0 then
+                        Library:Notify({Title = "Kill + Blob", Description = "Target killed!", Duration = 3})
+                        break
+                    end
+
+                    tRoot.AssemblyLinearVelocity = Vector3.zero
+                    tRoot.Velocity = Vector3.zero
+
+                    if seat then
+                        local blobman = seat.Parent
+                        local remoteFolder = blobman:FindFirstChild("BlobmanSeatAndOwnerScript")
+                        local grab = remoteFolder and remoteFolder:FindFirstChild("CreatureGrab")
+                        local drop = remoteFolder and remoteFolder:FindFirstChild("CreatureDrop")
+                        local L_Det = blobman:FindFirstChild("LeftDetector")
+                        local R_Det = blobman:FindFirstChild("RightDetector")
+                        local L_Weld = L_Det and (L_Det:FindFirstChild("LeftWeld") or L_Det:FindFirstChild("RigidConstraint"))
+                        local R_Weld = R_Det and (R_Det:FindFirstChild("RightWeld") or R_Det:FindFirstChild("RigidConstraint"))
+                        if phase == 0 and grab and L_Weld and R_Weld then
+                            pcall(function()
+                                grab:FireServer(L_Det, tRoot, L_Weld)
+                                grab:FireServer(R_Det, tRoot, R_Weld)
+                            end)
+                        elseif phase == 2 and drop and L_Weld and R_Weld then
+                            pcall(function()
+                                drop:FireServer(L_Weld, tRoot)
+                                drop:FireServer(R_Weld, tRoot)
+                            end)
+                        end
+                    end
+
+                    if phase == 0 then
+                        myRoot.CFrame = tRoot.CFrame
+                        if GE then
+                            pcall(function()
+                                tHum.PlatformStand = true
+                                GE.SetNetworkOwner:FireServer(tRoot, myRoot.CFrame)
+                            end)
+                        end
+                        if phaseStart == 0 then phaseStart = tick() end
+                        if tick() - phaseStart > 0.5 then
+                            phase = 1
+                            phaseStart = tick()
+                        end
+                    elseif phase == 1 then
+                        myRoot.CFrame = savedPos
+                        local liftPos = savedPos * CFrame.new(0, 400, 0)
+                        tRoot.CFrame = liftPos
+                        if GE then
+                            pcall(function()
+                                tHum.PlatformStand = true
+                                GE.SetNetworkOwner:FireServer(tRoot, liftPos)
+                            end)
+                        end
+                        if tick() - phaseStart > 1 then
+                            phase = 2
+                            phaseStart = tick()
+                        end
+                    elseif phase == 2 then
+                        pcall(function()
+                            tRoot.AssemblyLinearVelocity = Vector3.new(0, -1000, 0)
+                            tRoot.Velocity = Vector3.new(0, -1000, 0)
+                        end)
+                        if tick() - phaseStart > 1.5 then
+                            phase = 0
+                            phaseStart = 0
+                        end
+                    end
+                    RunService.Heartbeat:Wait()
+                end
+
+                if myRoot and savedPos then
+                    pcall(function() myRoot.CFrame = savedPos end)
+                end
+                killBlobActive = false
+            end)
+        else
+            if killBlobTask then task.cancel(killBlobTask); killBlobTask = nil end
+        end
+    end
+})
+
+-- ====================== VISUALS TAB ======================
+local VisGroup = Tabs.Visuals:AddLeftGroupbox("Camera & World", "camera")
+VisGroup:AddCheckbox("Thirdperson", {
+    Text = "Third Person", Default = false,
+    Callback = function(Value)
+        if Value then
+            LocalPlayer.CameraMode = Enum.CameraMode.Classic
+            LocalPlayer.CameraMaxZoomDistance = 1000
+            LocalPlayer.CameraMinZoomDistance = 0.5
+        else
+            LocalPlayer.CameraMode = Enum.CameraMode.LockFirstPerson
+            LocalPlayer.CameraMaxZoomDistance = 0.5
+            LocalPlayer.CameraMinZoomDistance = 0.5
+        end
+    end
+})
+VisGroup:AddSlider("VisualFOV", {
+    Text = "Field of View", Min = 70, Max = 120, Default = 70, Rounding = 0,
+    Callback = function(Value)
+        local cam = Workspace.CurrentCamera
+        if cam then cam.FieldOfView = Value end
+    end
+})
+
+-- ====================== SKYBOX (ПЕРЕРАБОТАННЫЙ) ======================
+local SkyGroup = Tabs.Visuals:AddRightGroupbox("Skybox", "cloud")
+
+-- Сохраняем оригинальное небо ЦЕЛИКОМ (все свойства)
+local function backupOriginalSky()
+    local sky = Lighting:FindFirstChildOfClass("Sky")
+    if sky then
+        local props = {}
+        for _, prop in ipairs({"SkyboxBk","SkyboxDn","SkyboxFt","SkyboxLf","SkyboxRt","SkyboxUp",
+            "StarCount","SunAngularSize","MoonAngularSize","CelestialBodiesShown"}) do
+            props[prop] = sky[prop]
+        end
+        return props
+    end
+    return nil
+end
+
+local originalSkyProps = backupOriginalSky()
+
+local skyboxPacks = {
+    ["Arctic"]    = {"6198097204","6198097282","6198097311","6198097331","6198097349","6198097371"},
+    ["Clouds"]    = {"6194156230","6194156244","6194156257","6194156266","6194156286","6194156295"},
+    ["Night"]     = {"6198189080","6198189140","6198189172","6198189201","6198189239","6198189280"},
+    ["Nightfall"] = {"6198092955","6198092990","6198093022","6198093039","6198093064","6198093092"},
+    ["Cloudy"]    = {"6198194216","6198194657","6198194683","6198194698","6198194702","6198194715"},
+    ["Rain"]      = {"6198108222","6198108252","6198108269","6198108284","6198108306","6198108321"},
+    ["Snow"]      = {"6198097204","6198097282","6198097311","6198097331","6198097349","6198097371"},
+    ["Galaxy"]    = {"271042516","271042556","271042597","271042627","271042647","271042700"},
+}
+
+local skyboxNames = {"Default"}
+for name in pairs(skyboxPacks) do table.insert(skyboxNames, name) end
+table.sort(skyboxNames)
+
+local function getOrCreateSky()
+    local sky = Lighting:FindFirstChild("KiopSky")
+    if not sky then
+        local old = Lighting:FindFirstChildOfClass("Sky")
+        if old then old:Destroy() end
+        sky = Instance.new("Sky")
+        sky.Name = "KiopSky"
+        sky.Parent = Lighting
+    end
+    return sky
+end
+
+local function applySkybox(name)
+    if name == "Default" then
+        local kiopSky = Lighting:FindFirstChild("KiopSky")
+        if kiopSky then kiopSky:Destroy() end
+        if originalSkyProps then
+            local sky = Lighting:FindFirstChildOfClass("Sky")
+            if not sky then
+                sky = Instance.new("Sky")
+                sky.Parent = Lighting
+            end
+            for prop, val in pairs(originalSkyProps) do
+                pcall(function() sky[prop] = val end)
+            end
+        end
+        return
+    end
+    local ids = skyboxPacks[name]
+    if not ids then return end
+    local sky = getOrCreateSky()
+    sky.SkyboxBk = "rbxassetid://" .. ids[1]
+    sky.SkyboxDn = "rbxassetid://" .. ids[2]
+    sky.SkyboxFt = "rbxassetid://" .. ids[3]
+    sky.SkyboxLf = "rbxassetid://" .. ids[4]
+    sky.SkyboxRt = "rbxassetid://" .. ids[5]
+    sky.SkyboxUp = "rbxassetid://" .. ids[6]
+    sky.StarCount = 3000
+end
+
+SkyGroup:AddDropdown("SkyboxDrop", {
+    Text = "Skybox",
+    Values = skyboxNames,
+    Default = "Default",
+    Callback = function(v) pcall(applySkybox, v) end
+})
+
+SkyGroup:AddButton({Text = "Restore Original Sky", Func = function()
+    pcall(applySkybox, "Default")
+    Library:Notify({Title = "Kiop", Description = "Sky restored", Duration = 2})
+end})
+
+-- Custom skybox (6 сторон одна текстура)
+local customSkyEnabled = false
+local customSkyId = ""
+
+SkyGroup:AddInput("CustomSkyboxID", {
+    Text = "Custom Skybox ID",
+    Default = "",
+    Placeholder = "Enter asset ID",
+    Numeric = true, Finished = true,
+    Callback = function(v)
+        customSkyId = v
+        if customSkyEnabled and customSkyId ~= "" then
+            pcall(function()
+                local sky = getOrCreateSky()
+                local url = "rbxassetid://" .. customSkyId
+                sky.SkyboxBk = url
+                sky.SkyboxDn = url
+                sky.SkyboxFt = url
+                sky.SkyboxLf = url
+                sky.SkyboxRt = url
+                sky.SkyboxUp = url
+            end)
+        end
+    end
+})
+
+SkyGroup:AddCheckbox("CustomSkyboxEnable", {
+    Text = "Enable Custom Skybox",
+    Default = false,
+    Callback = function(v)
+        customSkyEnabled = v
+        if v and customSkyId ~= "" then
+            pcall(function()
+                local sky = getOrCreateSky()
+                local url = "rbxassetid://" .. customSkyId
+                sky.SkyboxBk = url
+                sky.SkyboxDn = url
+                sky.SkyboxFt = url
+                sky.SkyboxLf = url
+                sky.SkyboxRt = url
+                sky.SkyboxUp = url
+            end)
+        elseif not v then
+            pcall(applySkybox, "Default")
+        end
+    end
+})
+
+SkyGroup:AddDivider()
+
+-- Full Bright (в группе скайбокса)
+local fbSaved = nil
+SkyGroup:AddCheckbox("FullBright", {
+    Text = "Full Bright",
+    Default = false,
+    Callback = function(v)
+        if v then
+            fbSaved = {
+                Brightness = Lighting.Brightness,
+                Ambient = Lighting.Ambient,
+                OutdoorAmbient = Lighting.OutdoorAmbient,
+                FogEnd = Lighting.FogEnd,
+                GlobalShadows = Lighting.GlobalShadows,
+            }
+            Lighting.Brightness = 3
+            Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+            Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+            Lighting.FogEnd = 100000
+            Lighting.GlobalShadows = false
+        else
+            if fbSaved then
+                Lighting.Brightness = fbSaved.Brightness
+                Lighting.Ambient = fbSaved.Ambient
+                Lighting.OutdoorAmbient = fbSaved.OutdoorAmbient
+                Lighting.FogEnd = fbSaved.FogEnd
+                Lighting.GlobalShadows = fbSaved.GlobalShadows
+                fbSaved = nil
+            end
+        end
+    end
+})
+
+-- Time Changer (в группе скайбокса)
+local timeChangerOn = false
+SkyGroup:AddCheckbox("TimeChanger", {
+    Text = "Time Changer",
+    Default = false,
+    Callback = function(v)
+        timeChangerOn = v
+        if not v then
+            pcall(function() Lighting.ClockTime = 14 end)
+        end
+    end
+})
+
+SkyGroup:AddSlider("WorldTime", {
+    Text = "World Time (0-24)",
+    Min = 0, Max = 24, Default = 12, Rounding = 1,
+    Callback = function(v)
+        if timeChangerOn then
+            Lighting.ClockTime = v
+        end
+    end
+})
+
+-- Cosmetics
+local CosGroup = Tabs.Visuals:AddRightGroupbox("Cosmetics", "sparkles")
+local cosmeticHat = nil
+local cosmeticTrail = nil
+local rainbowHatConn = nil
+local rainbowBodyConn = nil
+local origColors = {}
+
+local function applyHat()
+    local c = LocalPlayer.Character
+    local head = c and c:FindFirstChild("Head")
+    if not head then return end
+    if cosmeticHat then cosmeticHat:Destroy() end
+    cosmeticHat = Instance.new("Part")
+    cosmeticHat.Name = "CosmeticHat"
+    cosmeticHat.Size = Vector3.new(1, 1, 1)
+    cosmeticHat.Transparency = 0.3
+    cosmeticHat.Color = Color3.fromRGB(0, 255, 255)
+    cosmeticHat.Material = Enum.Material.Neon
+    cosmeticHat.CanCollide = false
+    cosmeticHat.Massless = true
+    local m = Instance.new("SpecialMesh", cosmeticHat)
+    m.MeshId = "rbxassetid://1033714"
+    m.Scale = Vector3.new(2.4, 1.6, 2.4)
+    local w = Instance.new("WeldConstraint", cosmeticHat)
+    w.Part0 = head
+    w.Part1 = cosmeticHat
+    cosmeticHat.CFrame = head.CFrame * CFrame.new(0, 1.1, 0)
+    cosmeticHat.Parent = c
+end
+
+local function applyTrail()
+    local c = LocalPlayer.Character
+    local hrp = c and c:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    if cosmeticTrail then cosmeticTrail:Destroy() end
+    local a0 = Instance.new("Attachment", hrp)
+    a0.Name = "CosmeticAtt0"
+    a0.Position = Vector3.new(0, 2, 0)
+    local a1 = Instance.new("Attachment", hrp)
+    a1.Name = "CosmeticAtt1"
+    a1.Position = Vector3.new(0, -2, 0)
+    cosmeticTrail = Instance.new("Trail", c)
+    cosmeticTrail.Attachment0 = a0
+    cosmeticTrail.Attachment1 = a1
+    cosmeticTrail.Lifetime = 0.5
+    cosmeticTrail.Color = ColorSequence.new(Color3.fromRGB(0, 255, 255))
+    cosmeticTrail.Transparency = NumberSequence.new(0, 1)
+end
+
+CosGroup:AddCheckbox("ChineseHat", {
+    Text = "Chinese Hat",
+    Default = false,
+    Callback = function(v)
+        if v then pcall(applyHat) else if cosmeticHat then cosmeticHat:Destroy(); cosmeticHat = nil end end
+    end
+})
+CosGroup:AddCheckbox("RainbowHat", {
+    Text = "Rainbow Hat",
+    Default = false,
+    Callback = function(v)
+        if v then
+            pcall(applyHat)
+            rainbowHatConn = RunService.Heartbeat:Connect(function()
+                if cosmeticHat and cosmeticHat.Parent then
+                    cosmeticHat.Color = Color3.fromHSV((tick() % 5) / 5, 1, 1)
+                end
+            end)
+        else
+            if rainbowHatConn then rainbowHatConn:Disconnect(); rainbowHatConn = nil end
+            if cosmeticHat then cosmeticHat.Color = Color3.fromRGB(0, 255, 255) end
+        end
+    end
+})
+CosGroup:AddCheckbox("NeonTrail", {
+    Text = "Neon Trail",
+    Default = false,
+    Callback = function(v)
+        if v then pcall(applyTrail) else if cosmeticTrail then cosmeticTrail:Destroy(); cosmeticTrail = nil end end
+    end
+})
+CosGroup:AddCheckbox("RainbowBody", {
+    Text = "Rainbow Body",
+    Default = false,
+    Callback = function(v)
+        if v then
+            local c = LocalPlayer.Character
+            if c then
+                origColors = {}
+                for _, p in ipairs(c:GetDescendants()) do
+                    if p:IsA("BasePart") and p.Name ~= "CosmeticHat" then
+                        origColors[p] = {Color = p.Color, Material = p.Material}
+                        p.Material = Enum.Material.Neon
+                    end
+                end
+            end
+            rainbowBodyConn = RunService.Heartbeat:Connect(function()
+                local c2 = LocalPlayer.Character
+                if not c2 then return end
+                for i, p in ipairs(c2:GetChildren()) do
+                    if p:IsA("BasePart") and p.Name ~= "CosmeticHat" then
+                        p.Color = Color3.fromHSV((tick() + i * 0.1) % 1, 1, 1)
+                    end
+                end
+            end)
+        else
+            if rainbowBodyConn then rainbowBodyConn:Disconnect(); rainbowBodyConn = nil end
+            local c = LocalPlayer.Character
+            if c then
+                for p, data in pairs(origColors) do
+                    if p and p.Parent then
+                        p.Color = data.Color
+                        p.Material = data.Material
+                    end
+                end
+            end
+            origColors = {}
+        end
+    end
+})
+
+-- ====================== ANIMATIONS (из RR9) ======================
+local AnimGroup = Tabs.Visuals:AddLeftGroupbox("Poses (FTAP)", "venetian-mask")
+local EmoteGroup = Tabs.Visuals:AddLeftGroupbox("Emotes", "drama")
+local DanceGroup = Tabs.Visuals:AddLeftGroupbox("Dances", "music")
+
+local currentTrack = nil
+local CurrentFTAPTrack = nil
+local currentAnimData = nil
+local AnimSpeedMultiplier = 1
+local selectedEmote = nil
+local selectedDance = nil
+local AnimPaths = {}
+local FTAPAnimList = {}
+
+pcall(function()
+    local rf = game:GetService("ReplicatedFirst")
+    local function grab(parentName, childName, key)
+        local folder = rf:FindFirstChild(parentName)
+        local anim = folder and folder:FindFirstChild(childName)
+        if anim then AnimPaths[key] = anim end
+    end
+    grab("Animations", "Crouch", "Crouch")
+    grab("CatchFire", "FireFlailAnimation", "Fire Flail")
+    grab("ThrowPlayers", "Flail", "Flail")
+    grab("Typing", "Type", "Type")
+    for name in pairs(AnimPaths) do table.insert(FTAPAnimList, name) end
+    table.sort(FTAPAnimList)
+end)
+
+local function stopAllAnims()
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        local animator = hum:FindFirstChildOfClass("Animator")
+        if animator then
+            for _, tr in pairs(animator:GetPlayingAnimationTracks()) do
+                pcall(function() tr:Stop(0.1) end)
+            end
+        end
+    end
+    currentTrack = nil
+    CurrentFTAPTrack = nil
+    currentAnimData = nil
+end
+
+-- Остановка только текущего эмота/танца (мягкая)
+local function stopCurrentListAnim()
+    if currentTrack then
+        pcall(function() currentTrack:Stop(0.1) end)
+    end
+    currentTrack = nil
+    currentAnimData = nil
+end
+
+local function playListAnim(list, animName)
+    local data
+    for _, e in ipairs(list) do
+        if e.name == animName then data = e break end
+    end
+    if not data then return end
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    local animator = hum and hum:FindFirstChildOfClass("Animator")
+    if not animator then return end
+    stopAllAnims()
+    local ok, track = pcall(function()
+        local anim = Instance.new("Animation")
+        anim.AnimationId = "rbxassetid://" .. tostring(data.id)
+        local t = animator:LoadAnimation(anim)
+        t.Looped = true
+        t:Play(0.1, data.weight or 1, (data.speed or 1) * (data.loopSpeed or 1) * AnimSpeedMultiplier)
+        return t
+    end)
+    if ok then currentAnimData = data; currentTrack = track end
+end
+
+local function playFTAPAnim()
+    local toggle = Toggles.FTAPActiveToggle
+    local drop = Options.FTAPPoseDrop
+    if not (toggle and toggle.Value and drop) then return end
+    local animObj = AnimPaths[drop.Value]
+    if not (animObj and animObj:IsA("Animation")) then return end
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    local animator = hum and hum:FindFirstChildOfClass("Animator")
+    if not animator then return end
+    stopAllAnims()
+    local ok, track = pcall(function()
+        local t = animator:LoadAnimation(animObj)
+        t.Looped = true
+        t:Play(0.1, 1, AnimSpeedMultiplier)
+        return t
+    end)
+    if ok then CurrentFTAPTrack = track end
+end
+
+if #FTAPAnimList > 0 then
+    AnimGroup:AddDropdown("FTAPPoseDrop", {
+        Text = "Pose", Values = FTAPAnimList, Default = FTAPAnimList[1],
+        Callback = function() playFTAPAnim() end
+    })
+    AnimGroup:AddCheckbox("FTAPActiveToggle", {
+        Text = "Play Pose",
+        Default = false,
+        Callback = function(state)
+            if state then playFTAPAnim() else stopAllAnims() end
+        end
+    })
+else
+    AnimGroup:AddLabel("FTAP poses not found", true)
+end
+
+AnimGroup:AddSlider("FTAPRateSlider", {
+    Text = "Speed", Default = 1, Min = 0.1, Max = 5, Rounding = 1, Suffix = "x",
+    Callback = function(v)
+        AnimSpeedMultiplier = v
+        if CurrentFTAPTrack and CurrentFTAPTrack.IsPlaying then CurrentFTAPTrack:AdjustSpeed(v) end
+        if currentTrack and currentTrack.IsPlaying and currentAnimData then
+            currentTrack:AdjustSpeed((currentAnimData.speed or 1) * (currentAnimData.loopSpeed or 1) * v)
+        end
+    end
+})
+AnimGroup:AddButton({Text = "Stop All Animations", Func = stopAllAnims})
+
+local emoteList = {
+    {name="Head Throw", id=35154961, speed=1, weight=1, loopSpeed=1},
+    {name="Floating Head", id=121572214, speed=1, weight=1},
+    {name="Crouch", id=182724289, speed=1, weight=1},
+    {name="Floor Crawl", id=282574440, speed=1, weight=1},
+    {name="Dino Walk", id=204328711, speed=1, weight=1},
+    {name="Jumping Jacks", id=429681631, speed=1, weight=1},
+    {name="Loop Head", id=35154961, speed=1, weight=1, loopSpeed=1e6},
+    {name="Hero Jump", id=184574340, speed=1, weight=1, loopSpeed=1},
+    {name="Faint", id=181526230, speed=1, weight=1},
+    {name="Floor Faint", id=181525546, speed=1, weight=1, loopSpeed=2},
+    {name="Super Faint", id=181525546, speed=0.5, weight=1, loopSpeed=40},
+    {name="Levitate", id=313762630, speed=1, weight=1},
+    {name="Float Sit", id=179224234, speed=1, weight=1},
+    {name="Weird Move", id=215384594, speed=1, weight=1},
+    {name="Clone Illusion", id=215384594, speed=1, weight=1, loopSpeed=1e7},
+    {name="Glitch Levitate", id=313762630, speed=1, weight=1, loopSpeed=1e7},
+    {name="Full Punch", id=204062532, speed=1, weight=1, loopSpeed=1},
+    {name="Bow Down", id=204292303, speed=1, weight=1, loopSpeed=3},
+    {name="Sword Slam", id=204295235, speed=1, weight=1, loopSpeed=1},
+    {name="Loop Slam", id=204295235, speed=1, weight=1, loopSpeed=1e4},
+    {name="Mega Insane", id=184574340, speed=0.5, weight=1, loopSpeed=40},
+    {name="Super Punch", id=126753849, speed=1, weight=1, loopSpeed=3},
+    {name="Full Swing", id=218504594, speed=1, weight=1, loopSpeed=1},
+    {name="Arm Turbine", id=259438880, speed=1, weight=1, loopSpeed=1e3},
+    {name="Barrel Roll", id=136801964, speed=1, weight=1, loopSpeed=1},
+    {name="Scared", id=180612465, speed=1, weight=1, loopSpeed=1},
+    {name="Insane", id=33796059, speed=1, weight=1, loopSpeed=1e8},
+    {name="Arm Detach", id=33169583, speed=1, weight=1, loopSpeed=1e6},
+    {name="Sword Slice", id=35978879, speed=1, weight=1},
+    {name="Insane Arms", id=27432691, speed=1, weight=1, loopSpeed=1e4},
+}
+
+local danceList = {
+    {name="Dab", id=183412246, speed=1, weight=1, loopSpeed=1},
+    {name="Spinner", id=188632011, speed=1, weight=1, loopSpeed=2},
+    {name="Moving Dance", id=429703734, speed=1, weight=1, loopSpeed=1},
+    {name="Spin Dance", id=429730430, speed=1, weight=1, loopSpeed=1},
+    {name="Moon Dance", id=45834924, speed=1, weight=1, loopSpeed=1},
+    {name="Spin Dance 2", id=186934910, speed=1, weight=1, loopSpeed=1},
+    {name="Thriller", id=27789359, speed=1, weight=1, loopSpeed=1},
+    {name="Robot", id=30196114, speed=1, weight=1, loopSpeed=1},
+    {name="Shuffle", id=248263260, speed=1, weight=1, loopSpeed=1},
+}
+
+local emoteNames, danceNames = {}, {}
+for _, e in ipairs(emoteList) do table.insert(emoteNames, e.name) end
+for _, d in ipairs(danceList) do table.insert(danceNames, d.name) end
+
+EmoteGroup:AddDropdown("EmoteDrop", {
+    Text = "Emote", Values = emoteNames, Default = emoteNames[1],
+    Callback = function(v) selectedEmote = v end
+})
+EmoteGroup:AddButton({Text = "Play Emote", Func = function()
+    if selectedEmote then playListAnim(emoteList, selectedEmote) end
+end})
+EmoteGroup:AddButton({Text = "Stop Emote", Func = function()
+    stopCurrentListAnim()
+end})
+
+DanceGroup:AddDropdown("DanceDrop", {
+    Text = "Dance", Values = danceNames, Default = danceNames[1],
+    Callback = function(v) selectedDance = v end
+})
+DanceGroup:AddButton({Text = "Play Dance", Func = function()
+    if selectedDance then playListAnim(danceList, selectedDance) end
+end})
+DanceGroup:AddButton({Text = "Stop Dance", Func = function()
+    stopCurrentListAnim()
+end})
+
+pcall(function()
+    LocalPlayer.CharacterAdded:Connect(function()
+        task.wait(1)
+        currentTrack = nil
+        CurrentFTAPTrack = nil
+        currentAnimData = nil
+        playFTAPAnim()
+    end)
+end)
+
+Library:Notify({Title = "Kiop Loaded", Description = "Ready. v8.", Duration = 3})
+
+-- ====================== ЖЁЛТАЯ ТЕМА ======================
+pcall(function()
+    local YELLOW = Color3.fromRGB(255, 196, 0)
+    local function isPurple(c)
+        return c.B > 0.45 and c.R > 0.30 and c.G < c.R * 0.85 and c.G < c.B * 0.95
+    end
+    local function fix(c)
+        return isPurple(c) and YELLOW or c
+    end
+    local function repaint(v)
+        if v:IsA("UIGradient") then
+            local kp = table.create(#v.Color.Keypoints)
+            for i, p in ipairs(v.Color.Keypoints) do
+                kp[i] = ColorSequenceKeypoint.new(p.Time, fix(p.Value))
+            end
+            v.Color = ColorSequence.new(kp)
+        elseif v:IsA("UIStroke") then
+            v.Color = fix(v.Color)
+        elseif v:IsA("GuiObject") then
+            v.BackgroundColor3 = fix(v.BackgroundColor3)
+            if v:IsA("TextLabel") or v:IsA("TextButton") or v:IsA("TextBox") then
+                v.TextColor3 = fix(v.TextColor3)
+            end
+            if v:IsA("ImageLabel") or v:IsA("ImageButton") then
+                v.ImageColor3 = fix(v.ImageColor3)
+            end
+            if v:IsA("ScrollingFrame") then
+                v.ScrollBarImageColor3 = fix(v.ScrollBarImageColor3)
+            end
+        end
+    end
+    local holder = (gethui and gethui()) or game:GetService("CoreGui")
+    local function process(gui)
+        for _, v in ipairs(gui:GetDescendants()) do pcall(repaint, v) end
+        gui.DescendantAdded:Connect(function(v)
+            task.defer(pcall, repaint, v)
+        end)
+    end
+    for _, gui in ipairs(holder:GetChildren()) do
+        if gui:IsA("ScreenGui") then process(gui) end
+    end
+    holder.ChildAdded:Connect(function(c)
+        if c:IsA("ScreenGui") then task.defer(process, c) end
+    end)
+    task.spawn(function()
+        while true do
+            task.wait(1.5)
+            for _, gui in ipairs(holder:GetChildren()) do
+                if gui:IsA("ScreenGui") then
+                    for _, v in ipairs(gui:GetDescendants()) do pcall(repaint, v) end
+                end
+            end
+        end
+    end)
+end)
+
+print("[Kiop] v8 FULL loaded OK")
+-- >>> KIOP END <<<
