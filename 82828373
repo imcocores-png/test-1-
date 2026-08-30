@@ -1,0 +1,694 @@
+-- в•”в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•—
+-- в•‘          Demo|horror вЂ” Р”РµРјРѕРЅРёС‡РµСЃРєР°СЏ РЅРµРґРµР»СЏ              в•‘
+-- в•‘          Horror GUI Script (LocalScript)                 в•‘
+-- в•љв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ќ
+
+-- РЎРµСЂРІРёСЃС‹
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Lighting = game:GetService("Lighting")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+--  РЎРћР—Р”РђРќРР• GUI
+-- в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+
+-- РћСЃРЅРѕРІРЅРѕР№ ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "DemoHorrorGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = CoreGui
+
+-- в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+--  Р¦Р’Р•РўРћР’РђРЇ РЎРҐР•РњРђ HORROR
+-- в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+local Colors = {
+	Background     = Color3.fromRGB(15, 0, 0),       -- РћС‡РµРЅСЊ С‚С‘РјРЅРѕ-РєСЂР°СЃРЅС‹Р№
+	PanelBg        = Color3.fromRGB(25, 5, 5),        -- РўС‘РјРЅР°СЏ РїР°РЅРµР»СЊ
+	HeaderBg       = Color3.fromRGB(40, 0, 0),        -- РЁР°РїРєР°
+	Accent         = Color3.fromRGB(180, 0, 0),       -- РЇСЂРєРёР№ РєСЂР°СЃРЅС‹Р№ Р°РєС†РµРЅС‚
+	AccentDark     = Color3.fromRGB(120, 0, 0),       -- РўС‘РјРЅС‹Р№ Р°РєС†РµРЅС‚
+	Text           = Color3.fromRGB(200, 200, 200),   -- РћСЃРЅРѕРІРЅРѕР№ С‚РµРєСЃС‚
+	TextDim        = Color3.fromRGB(120, 120, 120),   -- РўСѓСЃРєР»С‹Р№ С‚РµРєСЃС‚
+	TabActive      = Color3.fromRGB(180, 0, 0),       -- РђРєС‚РёРІРЅР°СЏ РІРєР»Р°РґРєР°
+	TabInactive    = Color3.fromRGB(30, 5, 5),        -- РќРµР°РєС‚РёРІРЅР°СЏ РІРєР»Р°РґРєР°
+	ToggleOn       = Color3.fromRGB(0, 200, 0),       -- Р’РєР»СЋС‡РµРЅРѕ (Р·РµР»С‘РЅС‹Р№)
+	ToggleOff      = Color3.fromRGB(80, 0, 0),        -- Р’С‹РєР»СЋС‡РµРЅРѕ
+	Border         = Color3.fromRGB(80, 0, 0),        -- Р“СЂР°РЅРёС†Р°
+	EyeColor       = Color3.fromRGB(255, 0, 0),       -- Р¦РІРµС‚ "РіР»Р°Р·"
+	Glow           = Color3.fromRGB(255, 30, 30),     -- РЎРІРµС‡РµРЅРёРµ
+}
+
+-- в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+--  Р“Р›РђР’РќР«Р™ Р¤Р Р•Р™Рњ
+-- в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 320, 0, 380)
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -190)
+MainFrame.BackgroundColor3 = Colors.Background
+MainFrame.BorderSizePixel = 2
+MainFrame.BorderColor3 = Colors.Accent
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+-- РЎРєСЂСѓРіР»РµРЅРёРµ СѓРіР»РѕРІ
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 8)
+MainCorner.Parent = MainFrame
+
+-- РўРµРЅСЊ / СЃРІРµС‡РµРЅРёРµ
+local MainGlow = Instance.new("UIStroke")
+MainGlow.Color = Colors.Accent
+MainGlow.Thickness = 2
+MainGlow.Transparency = 0.3
+MainGlow.Parent = MainFrame
+
+-- в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+--  РЁРђРџРљРђ РЎ В«Р“Р›РђР—РђРњРВ» HORROR
+-- в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+
+local Header = Instance.new("Frame")
+Header.Name = "Header"
+Header.Size = UDim2.new(1, 0, 0, 50)
+Header.BackgroundColor3 = Colors.HeaderBg
+Header.BorderSizePixel = 0
+Header.Parent = MainFrame
+
+local HeaderCorner = Instance.new("UICorner")
+HeaderCorner.CornerRadius = UDim.new(0, 8)
+HeaderCorner.Parent = Header
+
+-- РЎРєСЂС‹РІР°РµРј РЅРёР¶РЅРёРµ СЃРєСЂСѓРіР»РµРЅРёСЏ С€Р°РїРєРё
+local HeaderFix = Instance.new("Frame")
+HeaderFix.Size = UDim2.new(1, 0, 0, 20)
+HeaderFix.Position = UDim2.new(0, 0, 1, -20)
+HeaderFix.BackgroundColor3 = Colors.HeaderBg
+HeaderFix.BorderSizePixel = 0
+HeaderFix.Parent = Header
+
+-- Р›РµРІС‹Р№ В«РіР»Р°Р·В»
+local EyeLeft = Instance.new("Frame")
+EyeLeft.Size = UDim2.new(0, 16, 0, 16)
+EyeLeft.Position = UDim2.new(0, 15, 0, 17)
+EyeLeft.BackgroundColor3 = Colors.EyeColor
+EyeLeft.Parent = Header
+local EyeLeftCorner = Instance.new("UICorner")
+EyeLeftCorner.CornerRadius = UDim.new(1, 0)
+EyeLeftCorner.Parent = EyeLeft
+-- Р—СЂР°С‡РѕРє Р»РµРІРѕРіРѕ РіР»Р°Р·Р°
+local PupilLeft = Instance.new("Frame")
+PupilLeft.Size = UDim2.new(0, 6, 0, 10)
+PupilLeft.Position = UDim2.new(0.5, -3, 0.5, -5)
+PupilLeft.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+PupilLeft.Parent = EyeLeft
+local PupilLeftCorner = Instance.new("UICorner")
+PupilLeftCorner.CornerRadius = UDim.new(1, 0)
+PupilLeftCorner.Parent = PupilLeft
+
+-- РџСЂР°РІС‹Р№ В«РіР»Р°Р·В»
+local EyeRight = Instance.new("Frame")
+EyeRight.Size = UDim2.new(0, 16, 0, 16)
+EyeRight.Position = UDim2.new(0, 37, 0, 17)
+EyeRight.BackgroundColor3 = Colors.EyeColor
+EyeRight.Parent = Header
+local EyeRightCorner = Instance.new("UICorner")
+EyeRightCorner.CornerRadius = UDim.new(1, 0)
+EyeRightCorner.Parent = EyeRight
+-- Р—СЂР°С‡РѕРє РїСЂР°РІРѕРіРѕ РіР»Р°Р·Р°
+local PupilRight = Instance.new("Frame")
+PupilRight.Size = UDim2.new(0, 6, 0, 10)
+PupilRight.Position = UDim2.new(0.5, -3, 0.5, -5)
+PupilRight.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+PupilRight.Parent = EyeRight
+local PupilRightCorner = Instance.new("UICorner")
+PupilRightCorner.CornerRadius = UDim.new(1, 0)
+PupilRightCorner.Parent = PupilRight
+
+-- РђРЅРёРјР°С†РёСЏ В«РїСѓР»СЊСЃР°С†РёРёВ» РіР»Р°Р·
+local pulseAnim = Instance.new("UIAnimator")
+spawn(function()
+	while true do
+		for i = 0, 1, 0.05 do
+			local s = 1 + math.sin(tick() * 3) * 0.15
+			EyeLeft.Size = UDim2.new(0, 16 * s, 0, 16 * s)
+			EyeRight.Size = UDim2.new(0, 16 * s, 0, 16 * s)
+			EyeLeft.Position = UDim2.new(0, 15 - (16*s-16)/2, 0, 17 - (16*s-16)/2)
+			EyeRight.Position = UDim2.new(0, 37 - (16*s-16)/2, 0, 17 - (16*s-16)/2)
+			RunService.Heartbeat:Wait()
+		end
+		task.wait(0.03)
+	end
+end)
+
+-- РќР°Р·РІР°РЅРёРµ
+local Title = Instance.new("TextLabel")
+Title.Name = "Title"
+Title.Size = UDim2.new(1, -65, 1, 0)
+Title.Position = UDim2.new(0, 65, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "Demo|horror"
+Title.TextColor3 = Colors.Text
+Title.TextSize = 18
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Header
+
+-- РљРЅРѕРїРєР° Р·Р°РєСЂС‹С‚РёСЏ
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Name = "CloseBtn"
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -38, 0, 10)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextSize = 14
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = Header
+local CloseBtnCorner = Instance.new("UICorner")
+CloseBtnCorner.CornerRadius = UDim.new(0, 6)
+CloseBtnCorner.Parent = CloseBtn
+
+-- Р›РѕРіРёРєР° Р·Р°РєСЂС‹С‚РёСЏ/РѕС‚РєСЂС‹С‚РёСЏ
+MainFrame.Visible = true
+
+CloseBtn.MouseButton1Click:Connect(function()
+	MainFrame.Visible = false
+end)
+
+-- РљРЅРѕРїРєР° РѕС‚РєСЂС‹С‚РёСЏ (РєРЅРѕРїРєР° СЃРїСЂР°РІР° РІРЅРёР·Сѓ СЌРєСЂР°РЅР°)
+local OpenBtn = Instance.new("TextButton")
+OpenBtn.Name = "OpenBtn"
+OpenBtn.Size = UDim2.new(0, 45, 0, 45)
+OpenBtn.Position = UDim2.new(1, -55, 1, -55)
+OpenBtn.BackgroundColor3 = Colors.Accent
+OpenBtn.Text = "*")
+OpenBtn.TextColor3 = Colors.Text
+OpenBtn.TextSize = 22
+OpenBtn.Font = Enum.Font.GothamBold
+OpenBtn.Parent = ScreenGui
+local OpenBtnCorner = Instance.new("UICorner")
+OpenBtnCorner.CornerRadius = UDim.new(0, 10)
+OpenBtnCorner.Parent = OpenBtn
+local OpenStroke = Instance.new("UIStroke")
+OpenStroke.Color = Colors.Glow
+OpenStroke.Thickness = 2
+OpenStroke.Parent = OpenBtn
+
+OpenBtn.MouseButton1Click:Connect(function()
+	MainFrame.Visible = true
+end)
+
+-- Р“РѕСЂСЏС‡Р°СЏ РєР»Р°РІРёС€Р°: RightControl РґР»СЏ toggle
+UserInputService.InputBegan:Connect(function(input, gpe)
+	if gpe then return end
+	if input.KeyCode == Enum.KeyCode.RightControl then
+		MainFrame.Visible = not MainFrame.Visible
+	end
+end)
+
+-- в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+--  Р’РљР›РђР”РљР (TABS)
+-- в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+
+local TabBar = Instance.new("Frame")
+TabBar.Name = "TabBar"
+TabBar.Size = UDim2.new(1, 0, 0, 35)
+TabBar.Position = UDim2.new(0, 0, 0, 50)
+TabBar.BackgroundColor3 = Colors.PanelBg
+TabBar.BorderSizePixel = 0
+TabBar.Parent = MainFrame
+
+local TabListLayout = Instance.new("UIListLayout")
+TabListLayout.FillDirection = Enum.FillDirection.Horizontal
+TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+TabListLayout.Padding = UDim.new(0, 0)
+TabListLayout.Parent = TabBar
+
+local TabPadding = Instance.new("UIPadding")
+TabPadding.PaddingLeft = UDim.new(0, 5)
+TabPadding.PaddingTop = UDim.new(0, 4)
+TabPadding.PaddingBottom = UDim.new(0, 4)
+TabPadding.Parent = TabBar
+
+-- РљРѕРЅС‚РµР№РЅРµСЂ РґР»СЏ СЃРѕРґРµСЂР¶РёРјРѕРіРѕ РІРєР»Р°РґРѕРє
+local TabContent = Instance.new("Frame")
+TabContent.Name = "TabContent"
+TabContent.Size = UDim2.new(1, -10, 1, -95)
+TabContent.Position = UDim2.new(0, 5, 0, 90)
+TabContent.BackgroundTransparency = 1
+TabContent.ClipsDescendants = true
+TabContent.Parent = MainFrame
+
+-- Р¤СѓРЅРєС†РёСЏ СЃРѕР·РґР°РЅРёСЏ РІРєР»Р°РґРєРё
+local tabs = {}
+local activeTab = nil
+
+local function createTab(tabName, order)
+	local btn = Instance.new("TextButton")
+	btn.Name = tabName
+	btn.Size = UDim2.new(0.5, -5, 0, 27)
+	btn.BackgroundColor3 = Colors.TabInactive
+	btn.Text = tabName
+	btn.TextColor3 = Colors.TextDim
+	btn.TextSize = 13
+	btn.Font = Enum.Font.GothamBold
+	btn.LayoutOrder = order
+	btn.BorderSizePixel = 0
+	btn.Parent = TabBar
+
+	local btnCorner = Instance.new("UICorner")
+	btnCorner.CornerRadius = UDim.new(0, 6)
+	btnCorner.Parent = btn
+
+	-- РЎС‚СЂР°РЅРёС†Р° СЃРѕРґРµСЂР¶РёРјРѕРіРѕ
+	local page = Instance.new("ScrollingFrame")
+	page.Name = tabName .. "_Page"
+	page.Size = UDim2.new(1, 0, 1, 0)
+	page.BackgroundTransparency = 1
+	page.BorderSizePixel = 0
+	page.ScrollBarThickness = 3
+	page.ScrollBarImageColor3 = Colors.Accent
+	page.Visible = false
+	page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	page.CanvasSize = UDim2.new(0, 0, 0, 0)
+	page.Parent = TabContent
+
+	local pageLayout = Instance.new("UIListLayout")
+	pageLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	pageLayout.Padding = UDim.new(0, 6)
+	pageLayout.Parent = page
+
+	local pagePadding = Instance.new("UIPadding")
+	pagePadding.PaddingLeft = UDim.new(0, 5)
+	pagePadding.PaddingRight = UDim.new(0, 5)
+	pagePadding.PaddingTop = UDim.new(0, 5)
+	pagePadding.Parent = page
+
+	tabs[tabName] = { button = btn, page = page }
+
+	btn.MouseButton1Click:Connect(function()
+		-- Р”РµР°РєС‚РёРІРёСЂСѓРµРј РІСЃРµ РІРєР»Р°РґРєРё
+		for name, data in pairs(tabs) do
+			data.button.BackgroundColor3 = Colors.TabInactive
+			data.button.TextColor3 = Colors.TextDim
+			data.page.Visible = false
+		end
+		-- РђРєС‚РёРІРёСЂСѓРµРј РІС‹Р±СЂР°РЅРЅСѓСЋ
+		btn.BackgroundColor3 = Colors.TabActive
+		btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		page.Visible = true
+		activeTab = tabName
+	end)
+
+	return page
+end
+
+-- РЎРѕР·РґР°С‘Рј РІРєР»Р°РґРєРё
+local FunPage = createTab("Fun", 1)
+local MiscPage = createTab("Misc", 2)
+
+-- РђРєС‚РёРІРёСЂСѓРµРј РїРµСЂРІСѓСЋ РІРєР»Р°РґРєСѓ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
+tabs["Fun"].button.BackgroundColor3 = Colors.TabActive
+tabs["Fun"].button.TextColor3 = Color3.fromRGB(255, 255, 255)
+tabs["Fun"].page.Visible = true
+activeTab = "Fun"
+
+-- в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+--  РљРћРњРџРћРќР•РќРўР« UI
+-- в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+
+-- Р¤СѓРЅРєС†РёСЏ СЃРѕР·РґР°РЅРёСЏ Toggle-РєРЅРѕРїРєРё
+local function createToggle(parent, label, order, defaultState, callback)
+	local container = Instance.new("Frame")
+	container.Name = "Toggle_" .. label
+	container.Size = UDim2.new(1, 0, 0, 40)
+	container.BackgroundColor3 = Colors.PanelBg
+	container.BorderSizePixel = 1
+	container.BorderColor3 = Colors.Border
+	container.LayoutOrder = order
+	container.Parent = parent
+
+	local containerCorner = Instance.new("UICorner")
+	containerCorner.CornerRadius = UDim.new(0, 6)
+	containerCorner.Parent = container
+
+	-- РќР°Р·РІР°РЅРёРµ С„СѓРЅРєС†РёРё
+	local lbl = Instance.new("TextLabel")
+	lbl.Name = "Label"
+	lbl.Size = UDim2.new(1, -60, 1, 0)
+	lbl.Position = UDim2.new(0, 12, 0, 0)
+	lbl.BackgroundTransparency = 1
+	lbl.Text = label
+	lbl.TextColor3 = Colors.Text
+	lbl.TextSize = 13
+	lbl.Font = Enum.Font.GothamSemibold
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	lbl.Parent = container
+
+	-- Toggle-РєРЅРѕРїРєР° (РєСЂСѓРіР»Р°СЏ)
+	local toggleBtn = Instance.new("TextButton")
+	toggleBtn.Name = "Toggle"
+	toggleBtn.Size = UDim2.new(0, 42, 0, 22)
+	toggleBtn.Position = UDim2.new(1, -52, 0.5, -11)
+	toggleBtn.BackgroundColor3 = defaultState and Colors.ToggleOn or Colors.ToggleOff
+	toggleBtn.Text = ""
+	toggleBtn.BorderSizePixel = 0
+	toggleBtn.AutoButtonColor = false
+	toggleBtn.Parent = container
+
+	local toggleCorner = Instance.new("UICorner")
+	toggleCorner.CornerRadius = UDim.new(1, 0)
+	toggleCorner.Parent = toggleBtn
+
+	-- РљСЂСѓР¶РѕРє-РёРЅРґРёРєР°С‚РѕСЂ
+	local indicator = Instance.new("Frame")
+	indicator.Name = "Indicator"
+	indicator.Size = UDim2.new(0, 18, 0, 18)
+	indicator.Position = defaultState and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
+	indicator.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	indicator.BorderSizePixel = 0
+	indicator.Parent = toggleBtn
+
+	local indCorner = Instance.new("UICorner")
+	indCorner.CornerRadius = UDim.new(1, 0)
+	indCorner.Parent = indicator
+
+	-- РЎС‚Р°С‚СѓСЃ
+	local state = defaultState or false
+
+	toggleBtn.MouseButton1Click:Connect(function()
+		state = not state
+		if state then
+			toggleBtn.BackgroundColor3 = Colors.ToggleOn
+			indicator.Position = UDim2.new(1, -20, 0.5, -9)
+		else
+			toggleBtn.BackgroundColor3 = Colors.ToggleOff
+			indicator.Position = UDim2.new(0, 2, 0.5, -9)
+		end
+		if callback then
+			callback(state)
+		end
+	end)
+
+	return { getState = function() return state end }
+end
+
+-- Р¤СѓРЅРєС†РёСЏ СЃРѕР·РґР°РЅРёСЏ СЂР°Р·РґРµР»РёС‚РµР»СЏ
+local function createSeparator(parent, label, order)
+	local sep = Instance.new("Frame")
+	sep.Name = "Sep_" .. label
+	sep.Size = UDim2.new(1, 0, 0, 24)
+	sep.BackgroundTransparency = 1
+	sep.LayoutOrder = order
+	sep.Parent = parent
+
+	local line = Instance.new("Frame")
+	line.Size = UDim2.new(1, -10, 0, 1)
+	line.Position = UDim2.new(0, 5, 0, 12)
+	line.BackgroundColor3 = Colors.Border
+	line.BorderSizePixel = 0
+	line.Parent = sep
+
+	local sepLabel = Instance.new("TextLabel")
+	sepLabel.Size = UDim2.new(0, 100, 0, 20)
+	sepLabel.Position = UDim2.new(0, 8, 0, 2)
+	sepLabel.BackgroundTransparency = 1
+	sepLabel.Text = label
+	sepLabel.TextColor3 = Colors.Accent
+	sepLabel.TextSize = 11
+	sepLabel.Font = Enum.Font.GothamBold
+	sepLabel.TextXAlignment = Enum.TextXAlignment.Left
+	sepLabel.Parent = sep
+
+	return sep
+end
+
+-- в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+--  Р’РљР›РђР”РљРђ FUN вЂ” ESP С‚РѕРіРіР»С‹
+-- в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+
+-- Р Р°Р·РґРµР»РёС‚РµР»СЊ ESP
+createSeparator(FunPage, "вЂ” ESP вЂ”", 1)
+
+-- ESP РЅР° РёРіСЂРѕРєРѕРІ (Р·РµР»С‘РЅР°СЏ РїРѕРґСЃРІРµС‚РєР°)
+local playerESPEnabled = false
+local playerHighlights = {}
+
+local playerESPToggle = createToggle(FunPage, "ESP РРіСЂРѕРєРѕРІ", 2, false, function(state)
+	playerESPEnabled = state
+	if not state then
+		-- РЈРґР°Р»СЏРµРј РІСЃРµ РїРѕРґСЃРІРµС‚РєРё РёРіСЂРѕРєРѕРІ
+		for _, hl in pairs(playerHighlights) do
+			if hl and hl.Parent then hl:Destroy() end
+		end
+		playerHighlights = {}
+	end
+end)
+
+-- ESP РЅР° РїСЂРµРґРјРµС‚С‹ (СЃРёРЅСЏСЏ РїРѕРґСЃРІРµС‚РєР°)
+local itemESPEnabled = false
+local itemHighlights = {}
+
+local itemESPToggle = createToggle(FunPage, "ESP РџСЂРµРґРјРµС‚С‹", 3, false, function(state)
+	itemESPEnabled = state
+	if not state then
+		for _, hl in pairs(itemHighlights) do
+			if hl and hl.Parent then hl:Destroy() end
+		end
+		itemHighlights = {}
+	end
+end)
+
+-- ESP РЅР° РјРѕРЅСЃС‚СЂРѕРІ (РєСЂР°СЃРЅР°СЏ РїРѕРґСЃРІРµС‚РєР°)
+local monsterESPEnabled = false
+local monsterHighlights = {}
+
+local monsterESPToggle = createToggle(FunPage, "ESP РњРѕРЅСЃС‚СЂС‹", 4, false, function(state)
+	monsterESPEnabled = state
+	if not state then
+		for _, hl in pairs(monsterHighlights) do
+			if hl and hl.Parent then hl:Destroy() end
+		end
+		monsterHighlights = {}
+	end
+end)
+
+-- в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+--  Р’РљР›РђР”РљРђ MISC вЂ” Fullbright + Noclip
+-- в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+
+createSeparator(MiscPage, "вЂ” РќР°СЃС‚СЂРѕР№РєРё вЂ”", 1)
+
+-- Fullbright
+local fullbrightEnabled = false
+local originalLighting = {}
+
+local fullbrightToggle = createToggle(MiscPage, "Fullbright", 2, false, function(state)
+	fullbrightEnabled = state
+	if state then
+		-- РЎРѕС…СЂР°РЅСЏРµРј РѕСЂРёРіРёРЅР°Р»СЊРЅС‹Рµ РЅР°СЃС‚СЂРѕР№РєРё
+		originalLighting.Brightness = Lighting.Brightness
+		originalLighting.ClockTime = Lighting.ClockTime
+		originalLighting.FogEnd = Lighting.FogEnd
+		originalLighting.Ambient = Lighting.Ambient
+		originalLighting.OutdoorAmbient = Lighting.OutdoorAmbient
+		originalLighting.GlobalShadows = Lighting.GlobalShadows
+		-- РџСЂРёРјРµРЅСЏРµРј fullbright
+		Lighting.Brightness = 2
+		Lighting.ClockTime = 14
+		Lighting.FogEnd = 100000
+		Lighting.Ambient = Color3.fromRGB(178, 178, 178)
+		Lighting.OutdoorAmbient = Color3.fromRGB(178, 178, 178)
+		Lighting.GlobalShadows = false
+	else
+		-- Р’РѕР·РІСЂР°С‰Р°РµРј РѕСЂРёРіРёРЅР°Р»СЊРЅС‹Рµ РЅР°СЃС‚СЂРѕР№РєРё
+		if originalLighting.Brightness then
+			Lighting.Brightness = originalLighting.Brightness
+		end
+		if originalLighting.ClockTime then
+			Lighting.ClockTime = originalLighting.ClockTime
+		end
+		if originalLighting.FogEnd then
+			Lighting.FogEnd = originalLighting.FogEnd
+		end
+		if originalLighting.Ambient then
+			Lighting.Ambient = originalLighting.Ambient
+		end
+		if originalLighting.OutdoorAmbient then
+			Lighting.OutdoorAmbient = originalLighting.OutdoorAmbient
+		end
+		if originalLighting.GlobalShadows ~= nil then
+			Lighting.GlobalShadows = originalLighting.GlobalShadows
+		end
+	end
+end)
+
+-- Noclip
+local noclipEnabled = false
+local noclipConn = nil
+
+local noclipToggle = createToggle(MiscPage, "Noclip", 3, false, function(state)
+	noclipEnabled = state
+	if state then
+		noclipConn = RunService.Stepped:Connect(function()
+			local char = LocalPlayer.Character
+			if char then
+				for _, part in pairs(char:GetDescendants()) do
+					if part:IsA("BasePart") then
+						part.CanCollide = false
+					end
+				end
+			end
+		end)
+	else
+		if noclipConn then
+				noclipConn:Disconnect()
+				noclipConn = nil
+			end
+		-- Р’РѕР·РІСЂР°С‰Р°РµРј РєРѕР»Р»РёР·РёСЋ
+		local char = LocalPlayer.Character
+		if char then
+			for _, part in pairs(char:GetDescendants()) do
+				if part:IsA("BasePart") then
+						part.CanCollide = true
+					end
+			end
+		end
+	end
+end)
+
+-- в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+--  ESP РЎРРЎРўР•РњРђ вЂ” РћРЎРќРћР’РќРћР™ Р¦РРљР›
+-- в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+
+RunService.Heartbeat:Connect(function()
+	-- ESP РЅР° РёРіСЂРѕРєРѕРІ (Р·РµР»С‘РЅР°СЏ РїРѕРґСЃРІРµС‚РєР°, Р±РµР· РёРјС‘РЅ)
+	if playerESPEnabled then
+		-- РћС‡РёС‰Р°РµРј РѕС‚РєР»СЋС‡РёРІС€РёС…СЃСЏ
+		for plr, hl in pairs(playerHighlights) do
+			if not plr or not plr.Parent then
+				if hl and hl.Parent then hl:Destroy() end
+				playerHighlights[plr] = nil
+			end
+		end
+
+		for _, player in pairs(Players:GetPlayers()) do
+			if player ~= LocalPlayer and player.Character then
+				local char = player.Character
+				local rootPart = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChildWhichIsA("BasePart")
+
+				if rootPart then
+					-- РЎРѕР·РґР°С‘Рј РїРѕРґСЃРІРµС‚РєСѓ РµСЃР»Рё РЅРµС‚
+					if not playerHighlights[player] or not playerHighlights[player].Parent then
+						local highlight = Instance.new("Highlight")
+						highlight.Name = "DemoHorror_ESP"
+						highlight.Adornee = char
+						highlight.FillColor = Color3.fromRGB(0, 255, 0)
+						highlight.FillTransparency = 0.6
+						highlight.OutlineColor = Color3.fromRGB(0, 180, 0)
+						highlight.OutlineTransparency = 0
+						highlight.Parent = char
+						playerHighlights[player] = highlight
+					end
+				end
+			end
+		end
+	end
+
+	-- ESP РЅР° РїСЂРµРґРјРµС‚С‹ (СЃРёРЅСЏСЏ РїРѕРґСЃРІРµС‚РєР°)
+	-- РџСЂРµРґРјРµС‚С‹ РѕР±С‹С‡РЅРѕ РёРјРµСЋС‚ С‚РµРі "Item" РёР»Рё Р»РµР¶Р°С‚ РІ РїР°РїРєРµ workspace/Items
+	-- РђРґР°РїС‚РёСЂСѓР№ РїСѓС‚СЊ РїРѕРґ СЃРІРѕСЋ РёРіСЂСѓ!
+	if itemESPEnabled then
+		local itemsFolder = workspace:FindFirstChild("Items")
+			or workspace:FindFirstChild("ItemsFolder")
+			or workspace:FindFirstChild("Map")
+
+		if itemsFolder then
+			for _, item in pairs(itemsFolder:GetDescendants()) do
+				if item:IsA("BasePart") or item:IsA("Model") then
+					local targetPart = item:IsA("Model") and (item.PrimaryPart or item:FindFirstChildWhichIsA("BasePart")) or item
+
+					if targetPart and not item:FindFirstChild("DemoHorror_ESP") then
+						local highlight = Instance.new("Highlight")
+						highlight.Name = "DemoHorror_ESP"
+						highlight.Adornee = item:IsA("Model") and item or targetPart
+						highlight.FillColor = Color3.fromRGB(0, 120, 255)
+						highlight.FillTransparency = 0.5
+						highlight.OutlineColor = Color3.fromRGB(0, 80, 255)
+						highlight.OutlineTransparency = 0
+						highlight.Parent = item:IsA("Model") and item or targetPart
+						table.insert(itemHighlights, highlight)
+					end
+				end
+			end
+		end
+	end
+
+	-- ESP РЅР° РјРѕРЅСЃС‚СЂРѕРІ (РєСЂР°СЃРЅР°СЏ РїРѕРґСЃРІРµС‚РєР°)
+	-- РњРѕРЅСЃС‚СЂС‹ РѕР±С‹С‡РЅРѕ РІ workspace/Entities РёР»Рё workspace/Monsters
+	-- РђРґР°РїС‚РёСЂСѓР№ РїСѓС‚СЊ РїРѕРґ СЃРІРѕСЋ РёРіСЂСѓ!
+	if monsterESPEnabled then
+		local monstersFolder = workspace:FindFirstChild("Entities")
+			or workspace:FindFirstChild("Monsters")
+			or workspace:FindFirstChild("Enemies")
+
+		if monstersFolder then
+			for _, monster in pairs(monstersFolder:GetDescendants()) do
+				if monster:IsA("Model") and not monster:FindFirstChild("DemoHorror_ESP") then
+					local highlight = Instance.new("Highlight")
+					highlight.Name = "DemoHorror_ESP"
+					highlight.Adornee = monster
+					highlight.FillColor = Color3.fromRGB(255, 0, 0)
+					highlight.FillTransparency = 0.5
+					highlight.OutlineColor = Color3.fromRGB(200, 0, 0)
+					highlight.OutlineTransparency = 0
+					highlight.Parent = monster
+					table.insert(monsterHighlights, highlight)
+				end
+			end
+		end
+	end
+end)
+
+-- в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+--  РЈРІРµРґРѕРјР»РµРЅРёРµ РїСЂРё Р·Р°РіСЂСѓР·РєРµ
+-- в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+
+local notif = Instance.new("TextLabel")
+notif.Size = UDim2.new(0, 250, 0, 35)
+notif.Position = UDim2.new(0.5, -125, 0, 15)
+notif.BackgroundColor3 = Colors.HeaderBg
+notif.TextColor3 = Colors.Text
+notif.Text = "Demo|horror Р·Р°РіСЂСѓР¶РµРЅ. RightCtrl вЂ” toggle."
+notif.TextSize = 12
+notif.Font = Enum.Font.GothamSemibold
+notif.BorderSizePixel = 1
+notif.BorderColor3 = Colors.Accent
+notif.ZIndex = 100
+notif.Parent = ScreenGui
+local notifCorner = Instance.new("UICorner")
+notifCorner.CornerRadius = UDim.new(0, 8)
+notifCorner.Parent = notif
+
+-- РЈР±РёСЂР°РµРј СѓРІРµРґРѕРјР»РµРЅРёРµ С‡РµСЂРµР· 4 СЃРµРєСѓРЅРґС‹
+spawn(function()
+	task.wait(4)
+	if notif then
+		for i = 1, 20 do
+			notif.BackgroundTransparency = i / 20
+			notif.TextTransparency = i / 20
+			task.wait(0.05)
+		end
+		notif:Destroy()
+	end
+end)
+
+print("[Demo|horror] GUI Р·Р°РіСЂСѓР¶РµРЅ СѓСЃРїРµС€РЅРѕ!")
