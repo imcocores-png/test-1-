@@ -1,0 +1,903 @@
+--========================================================--
+--   R A I F I E L D  —  HORROR GUI v3 (Demonic Wee)
+--   Вкладки: Visuals (ESP игроки/монстры/предметы)
+--            Fun (Fullbright MAX, Force Day, Horror, Лицо)
+--            Poop (Noclip, God Mode, Infinite Ammo)
+--========================================================--
+
+local Players          = game:GetService("Players")
+local TweenService     = game:GetService("TweenService")
+local RunService       = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Lighting         = game:GetService("Lighting")
+
+local LocalPlayer = Players.LocalPlayer
+local Mouse       = LocalPlayer:GetMouse()
+
+--================ ЦВЕТА ================--
+local C_BG     = Color3.fromRGB(10, 8, 8)
+local C_PANEL  = Color3.fromRGB(20, 11, 11)
+local C_STROKE = Color3.fromRGB(170, 15, 15)
+local C_GLOW   = Color3.fromRGB(255, 35, 35)
+local C_TEXT   = Color3.fromRGB(235, 225, 225)
+local C_GREEN  = Color3.fromRGB(0, 255, 70)
+local C_BLUE   = Color3.fromRGB(0, 140, 255)
+local C_YELLOW = Color3.fromRGB(255, 200, 0)
+
+local horrorEnabled = false
+local setFace -- объявляем заранее, чтобы колбэк тоггла её видел
+
+--================ ESP ИГРОКОВ (ЗЕЛЁНЫЙ) ================--
+local espEnabled = false
+local espObjects = {}
+
+local function addESP(plr)
+    if plr == LocalPlayer then return end
+    local char = plr.Character
+    if not char then return end
+
+    local old = espObjects[plr]
+    if old and old.Parent == char then return end
+    if old then old:Destroy() end
+
+    local hl = Instance.new("Highlight")
+    hl.Name = "HorrorESP"
+    hl.FillColor = C_GREEN
+    hl.OutlineColor = Color3.fromRGB(0, 140, 45)
+    hl.FillTransparency = 0.5
+    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Parent = char
+    espObjects[plr] = hl
+end
+
+local function removeESP(plr)
+    if espObjects[plr] then
+        espObjects[plr]:Destroy()
+        espObjects[plr] = nil
+    end
+end
+
+local function setESP(state)
+    espEnabled = state
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if state then addESP(plr) else removeESP(plr) end
+    end
+end
+
+local function hookChar(plr)
+    plr.CharacterAdded:Connect(function()
+        task.wait(0.6)
+        if espEnabled then addESP(plr) end
+    end)
+end
+
+Players.PlayerAdded:Connect(hookChar)
+for _, plr in ipairs(Players:GetPlayers()) do hookChar(plr) end
+
+--================ ESP МОНСТРОВ (СИНИЙ) ================--
+local monstersEnabled = false
+local monsterHighlights = {}
+
+local MONSTER_KEYWORDS = {
+    "monster", "entity", "demon", "ghost", "enemy",
+    "npc", "creature", "boss", "mob", "wee", "rig", "doll"
+}
+
+local function isMonster(obj)
+    if not obj:IsA("Model") then return false end
+    if Players:GetPlayerFromCharacter(obj) then return false end
+    if obj:FindFirstChildOfClass("Humanoid") then return true end
+    local n = obj.Name:lower()
+    for _, kw in ipairs(MONSTER_KEYWORDS) do
+        if n:find(kw, 1, true) then return true end
+    end
+    return false
+end
+
+local function addMonsterESP(model)
+    if monsterHighlights[model] and monsterHighlights[model].Parent == model then return end
+    if monsterHighlights[model] then monsterHighlights[model]:Destroy() end
+
+    local hl = Instance.new("Highlight")
+    hl.Name = "HorrorMonsterESP"
+    hl.FillColor = C_BLUE
+    hl.OutlineColor = Color3.fromRGB(0, 60, 160)
+    hl.FillTransparency = 0.45
+    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Parent = model
+    monsterHighlights[model] = hl
+end
+
+local function removeMonsterESP(model)
+    if monsterHighlights[model] then
+        monsterHighlights[model]:Destroy()
+        monsterHighlights[model] = nil
+    end
+end
+
+local function setMonsterESP(state)
+    monstersEnabled = state
+    if state then
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if isMonster(obj) then addMonsterESP(obj) end
+        end
+    else
+        for m in pairs(monsterHighlights) do removeMonsterESP(m) end
+    end
+end
+
+--================ ESP ПРЕДМЕТОВ (ЖЁЛТЫЙ) ================--
+local itemsEnabled = false
+local itemHighlights = {}
+
+-- ⚙️ Если предметы в Demonic называются иначе — допиши сюда:
+local ITEM_KEYWORDS = {
+    "item", "pickup", "battery", "ammo", "shell", "key",
+    "medkit", "health", "food", "candle", "fuse", "valve"
+}
+
+local function isWorldItem(obj)
+    -- Все инструменты/оружие, лежащие на полу
+    if obj:IsA("Tool") then
+        local par = obj.Parent
+        if par and par:FindFirstChildOfClass("Humanoid") then return false end -- в руках
+        return true
+    end
+    if not (obj:IsA("BasePart") or obj:IsA("Model")) then return false end
+    if obj:IsA("Model") and Players:GetPlayerFromCharacter(obj) then return false end
+    local n = obj.Name:lower()
+    for _, kw in ipairs(ITEM_KEYWORDS) do
+        if n:find(kw, 1, true) then return true end
+    end
+    return false
+end
+
+local function addItemESP(obj)
+    if itemHighlights[obj] and itemHighlights[obj].Parent == obj then return end
+    if itemHighlights[obj] then itemHighlights[obj]:Destroy() end
+
+    local hl = Instance.new("Highlight")
+    hl.Name = "HorrorItemESP"
+    hl.FillColor = C_YELLOW
+    hl.OutlineColor = Color3.fromRGB(160, 110, 0)
+    hl.FillTransparency = 0.4
+    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Parent = obj
+    itemHighlights[obj] = hl
+end
+
+local function removeItemESP(obj)
+    if itemHighlights[obj] then
+        itemHighlights[obj]:Destroy()
+        itemHighlights[obj] = nil
+    end
+end
+
+local function setItemESP(state)
+    itemsEnabled = state
+    if state then
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if isWorldItem(obj) then addItemESP(obj) end
+        end
+    else
+        for o in pairs(itemHighlights) do removeItemESP(o) end
+    end
+end
+
+-- Новые объекты на карте
+workspace.DescendantAdded:Connect(function(obj)
+    task.wait(0.1)
+    if monstersEnabled and isMonster(obj) then addMonsterESP(obj) end
+    if itemsEnabled and isWorldItem(obj) then addItemESP(obj) end
+end)
+
+--================ POOP: NOCLIP ================--
+local noclipConn = nil
+
+local function setNoclip(state)
+    if state then
+        noclipConn = RunService.Stepped:Connect(function()
+            local char = LocalPlayer.Character
+            if char then
+                for _, p in ipairs(char:GetDescendants()) do
+                    if p:IsA("BasePart") and p.CanCollide then
+                        p.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        if noclipConn then noclipConn:Disconnect() noclipConn = nil end
+    end
+end
+
+--================ POOP: GOD MODE ================--
+local godConn = nil
+
+local function setGod(state)
+    if state then
+        godConn = RunService.Heartbeat:Connect(function()
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                if hum.MaxHealth < 1e9 then hum.MaxHealth = 1e9 end
+                if hum.Health < hum.MaxHealth then hum.Health = hum.MaxHealth end
+            end
+            if char and not char:FindFirstChildOfClass("ForceField") then
+                local ff = Instance.new("ForceField")
+                ff.Visible = false
+                ff.Parent = char
+            end
+        end)
+    else
+        if godConn then godConn:Disconnect() godConn = nil end
+        local char = LocalPlayer.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum.MaxHealth = 100
+            hum.Health = math.min(hum.Health, 100)
+        end
+        if char then
+            local ff = char:FindFirstChildOfClass("ForceField")
+            if ff then ff:Destroy() end
+        end
+    end
+end
+
+--================ POOP: INFINITE AMMO ================--
+-- ⚙️ Если патроны дробовика хранятся под другим именем — допиши сюда:
+local AMMO_KEYWORDS = { "ammo", "ammunition", "clip", "mag", "magazine", "shell", "bullet", "round" }
+
+local ammoEnabled = false
+
+local function fillAmmoOn(tool)
+    for _, v in ipairs(tool:GetDescendants()) do
+        if v:IsA("IntValue") or v:IsA("NumberValue") then
+            local n = v.Name:lower()
+            for _, kw in ipairs(AMMO_KEYWORDS) do
+                if n:find(kw, 1, true) then
+                    v.Value = 9999
+                    break
+                end
+            end
+        end
+    end
+    for name, val in pairs(tool:GetAttributes()) do
+        if type(val) == "number" then
+            local ln = name:lower()
+            for _, kw in ipairs(AMMO_KEYWORDS) do
+                if ln:find(kw, 1, true) then
+                    tool:SetAttribute(name, 9999)
+                    break
+                end
+            end
+        end
+    end
+end
+
+--================ FUN: FULLBRIGHT MAX ================--
+local savedLighting = {}
+local savedAtmo = nil
+local fbCC = nil
+
+local function applyFullbright(state)
+    if state then
+        savedLighting = {
+            Brightness             = Lighting.Brightness,
+            Ambient                = Lighting.Ambient,
+            OutdoorAmbient         = Lighting.OutdoorAmbient,
+            GlobalShadows          = Lighting.GlobalShadows,
+            FogEnd                 = Lighting.FogEnd,
+            FogStart               = Lighting.FogStart,
+            ExposureCompensation   = Lighting.ExposureCompensation,
+        }
+        Lighting.Brightness     = 5
+        Lighting.Ambient        = Color3.fromRGB(215, 215, 215)
+        Lighting.OutdoorAmbient = Color3.fromRGB(215, 215, 215)
+        Lighting.GlobalShadows  = false
+        Lighting.FogEnd         = 1e6
+        Lighting.FogStart       = 0
+        Lighting.ExposureCompensation = 0.5
+
+        savedAtmo = Lighting:FindFirstChildOfClass("Atmosphere")
+        if savedAtmo then savedAtmo.Parent = nil end
+
+        fbCC = Instance.new("ColorCorrectionEffect")
+        fbCC.Name = "FB_Boost"
+        fbCC.Brightness = 0.07
+        fbCC.Contrast = 0.08
+        fbCC.Saturation = 0.15
+        fbCC.Parent = Lighting
+    else
+        for k, v in pairs(savedLighting) do
+            Lighting[k] = v
+        end
+        if savedAtmo then savedAtmo.Parent = Lighting savedAtmo = nil end
+        if fbCC then fbCC:Destroy() fbCC = nil end
+    end
+end
+
+local dayOn, savedTime = false, Lighting.ClockTime
+
+local function applyDay(state)
+    if state then
+        savedTime = Lighting.ClockTime
+        Lighting.ClockTime = 12
+    else
+        Lighting.ClockTime = savedTime
+    end
+end
+
+--================ GUI ================--
+local gui = Instance.new("ScreenGui")
+gui.Name = "RaifieldHorror"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local ok = pcall(function()
+    gui.Parent = (gethui and gethui()) or game:GetService("CoreGui")
+end)
+if not ok then
+    gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+local main = Instance.new("Frame")
+main.Size = UDim2.fromOffset(430, 300)
+main.Position = UDim2.new(0.5, -215, 0.5, -150)
+main.BackgroundColor3 = C_BG
+main.BorderSizePixel = 0
+main.Active = true
+main.Parent = gui
+
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
+local stroke = Instance.new("UIStroke")
+stroke.Color = C_STROKE
+stroke.Thickness = 2
+stroke.Parent = main
+
+local top = Instance.new("Frame")
+top.Size = UDim2.new(1, 0, 0, 46)
+top.BackgroundColor3 = C_PANEL
+top.BorderSizePixel = 0
+top.Parent = main
+Instance.new("UICorner", top).CornerRadius = UDim.new(0, 12)
+
+local fix = Instance.new("Frame")
+fix.Size = UDim2.new(1, 0, 0, 12)
+fix.Position = UDim2.new(0, 0, 1, -12)
+fix.BackgroundColor3 = C_PANEL
+fix.BorderSizePixel = 0
+fix.Parent = top
+
+-- ГЛАЗА в шапке
+local function makeEye(x)
+    local eye = Instance.new("Frame")
+    eye.Size = UDim2.fromOffset(26, 15)
+    eye.Position = UDim2.new(0, x, 0.5, 0)
+    eye.AnchorPoint = Vector2.new(0, 0.5)
+    eye.BackgroundColor3 = Color3.fromRGB(240, 235, 235)
+    eye.BorderSizePixel = 0
+    eye.Parent = top
+    Instance.new("UICorner", eye).CornerRadius = UDim.new(1, 0)
+
+    local pupil = Instance.new("Frame")
+    pupil.Size = UDim2.fromOffset(9, 9)
+    pupil.Position = UDim2.new(0.5, 0, 0.5, 0)
+    pupil.AnchorPoint = Vector2.new(0.5, 0.5)
+    pupil.BackgroundColor3 = C_GLOW
+    pupil.BorderSizePixel = 0
+    pupil.Parent = eye
+    Instance.new("UICorner", pupil).CornerRadius = UDim.new(1, 0)
+
+    return eye, pupil
+end
+
+local eyeL, pupilL = makeEye(18)
+local eyeR, pupilR = makeEye(52)
+
+local title = Instance.new("TextLabel")
+title.BackgroundTransparency = 1
+title.Position = UDim2.new(0, 92, 0, 0)
+title.Size = UDim2.new(0, 200, 1, 0)
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Text = "R A I F I E L D"
+title.TextColor3 = C_GLOW
+title.Font = Enum.Font.Arcade
+title.TextSize = 20
+title.Parent = top
+
+local minBtn = Instance.new("TextButton")
+minBtn.Size = UDim2.fromOffset(30, 30)
+minBtn.Position = UDim2.new(1, -72, 0.5, -15)
+minBtn.BackgroundColor3 = Color3.fromRGB(32, 10, 10)
+minBtn.Text = "–"
+minBtn.TextColor3 = C_GLOW
+minBtn.Font = Enum.Font.GothamBold
+minBtn.TextSize = 18
+minBtn.Parent = top
+Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0, 8)
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.fromOffset(30, 30)
+closeBtn.Position = UDim2.new(1, -38, 0.5, -15)
+closeBtn.BackgroundColor3 = Color3.fromRGB(32, 10, 10)
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = C_GLOW
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 14
+closeBtn.Parent = top
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
+
+--================ ВКЛАДКИ ================--
+local tabHolder = Instance.new("Frame")
+tabHolder.Position = UDim2.new(0, 14, 0, 56)
+tabHolder.Size = UDim2.new(1, -28, 0, 30)
+tabHolder.BackgroundTransparency = 1
+tabHolder.Parent = main
+
+local tabButtons = {}
+local tabContents = {}
+
+local function makeTab(name)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 118, 1, 0)
+    btn.Position = UDim2.new(0, #tabButtons * 126, 0, 0)
+    btn.BackgroundColor3 = C_PANEL
+    btn.Text = name
+    btn.TextColor3 = C_TEXT
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 14
+    btn.Parent = tabHolder
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+    local ts = Instance.new("UIStroke")
+    ts.Color = C_STROKE
+    ts.Thickness = 1.5
+    ts.Parent = btn
+
+    local content = Instance.new("Frame")
+    content.Position = UDim2.new(0, 14, 0, 96)
+    content.Size = UDim2.new(1, -28, 1, -110)
+    content.BackgroundTransparency = 1
+    content.Visible = false
+    content.Parent = main
+
+    table.insert(tabButtons, btn)
+    tabContents[name] = content
+
+    btn.MouseButton1Click:Connect(function()
+        for n, c in pairs(tabContents) do c.Visible = (n == name) end
+        for _, b in ipairs(tabButtons) do
+            b.BackgroundColor3 = (b == btn) and Color3.fromRGB(50, 12, 12) or C_PANEL
+            b.TextColor3 = (b == btn) and C_GLOW or C_TEXT
+        end
+    end)
+
+    return content
+end
+
+local visContent  = makeTab("👁 Visuals")
+local funContent  = makeTab("🔥 Fun")
+local poopContent = makeTab("💀 Poop")
+
+for n, c in pairs(tabContents) do c.Visible = (n == "👁 Visuals") end
+tabButtons[1].BackgroundColor3 = Color3.fromRGB(50, 12, 12)
+tabButtons[1].TextColor3 = C_GLOW
+
+--================ ТОГГЛЫ ================--
+local function makeToggle(parent, posY, name, callback)
+    local frame = Instance.new("TextButton")
+    frame.Size = UDim2.new(1, 0, 0, 34)
+    frame.Position = UDim2.new(0, 0, 0, posY)
+    frame.BackgroundColor3 = C_PANEL
+    frame.Text = ""
+    frame.AutoButtonColor = false
+    frame.Parent = parent
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+
+    local label = Instance.new("TextLabel")
+    label.BackgroundTransparency = 1
+    label.Position = UDim2.new(0, 10, 0, 0)
+    label.Size = UDim2.new(1, -70, 1, 0)
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Text = name
+    label.TextColor3 = C_TEXT
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 13
+    label.Parent = frame
+
+    local sw = Instance.new("Frame")
+    sw.AnchorPoint = Vector2.new(1, 0.5)
+    sw.Position = UDim2.new(1, -10, 0.5, 0)
+    sw.Size = UDim2.fromOffset(42, 22)
+    sw.BackgroundColor3 = Color3.fromRGB(45, 20, 20)
+    sw.Parent = frame
+    Instance.new("UICorner", sw).CornerRadius = UDim.new(1, 0)
+
+    local knob = Instance.new("Frame")
+    knob.AnchorPoint = Vector2.new(0, 0.5)
+    knob.Position = UDim2.new(0, 3, 0.5, 0)
+    knob.Size = UDim2.fromOffset(16, 16)
+    knob.BackgroundColor3 = Color3.fromRGB(90, 40, 40)
+    knob.Parent = sw
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+
+    local state = false
+    frame.MouseButton1Click:Connect(function()
+        state = not state
+        TweenService:Create(sw, TweenInfo.new(0.18), {
+            BackgroundColor3 = state and Color3.fromRGB(0, 110, 40) or Color3.fromRGB(45, 20, 20)
+        }):Play()
+        TweenService:Create(knob, TweenInfo.new(0.18), {
+            Position = state and UDim2.new(1, -19, 0.5, 0) or UDim2.new(0, 3, 0.5, 0),
+            BackgroundColor3 = state and C_GREEN or Color3.fromRGB(90, 40, 40)
+        }):Play()
+        callback(state)
+    end)
+end
+
+-- Visuals
+makeToggle(visContent, 0,  "ESP — Игроки (зелёный)",   function(s) setESP(s) end)
+makeToggle(visContent, 44, "ESP — Монстры (синий)",    function(s) setMonsterESP(s) end)
+makeToggle(visContent, 88, "ESP — Предметы (жёлтый)",  function(s) setItemESP(s) end)
+
+-- Fun
+makeToggle(funContent, 0,   "Fullbright MAX — светло",        function(s) applyFullbright(s) end)
+makeToggle(funContent, 44,  "Force Day — полдень",            function(s) applyDay(s) end)
+makeToggle(funContent, 88,  "Horror Mode — атмосфера",        function(s) horrorEnabled = s end)
+makeToggle(funContent, 132, "Creepy 3D Face — жуткое лицо",   function(s) if setFace then setFace(s) end end)
+
+-- Poop
+makeToggle(poopContent, 0,  "Noclip — сквозь стены",          function(s) setNoclip(s) end)
+makeToggle(poopContent, 44, "God Mode — бессмертие",          function(s) setGod(s) end)
+makeToggle(poopContent, 88, "Infinite Ammo — патроны ∞",      function(s) ammoEnabled = s end)
+
+--================ ХОРРОР 3D ЛИЦО ================--
+local face = Instance.new("Frame")
+face.AnchorPoint = Vector2.new(0.5, 0.5)
+face.Position = UDim2.new(0.5, 0, 0.5, 0)
+face.Size = UDim2.fromOffset(230, 300)
+face.BackgroundTransparency = 1
+face.Visible = false
+face.ZIndex = 40
+face.Parent = gui
+
+-- Голова (псевдо-3D за счёт градиента-затенения)
+local head = Instance.new("Frame")
+head.Size = UDim2.fromScale(1, 1)
+head.BackgroundColor3 = Color3.fromRGB(232, 224, 210)
+head.BorderSizePixel = 0
+head.Parent = face
+Instance.new("UICorner", head).CornerRadius = UDim.new(0.5, 0)
+
+local shade = Instance.new("UIGradient")
+shade.Rotation = 35
+shade.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0,    Color3.fromRGB(245, 238, 226)),
+    ColorSequenceKeypoint.new(0.55, Color3.fromRGB(210, 196, 182)),
+    ColorSequenceKeypoint.new(1,    Color3.fromRGB(105, 88, 80)),
+})
+shade.Parent = head
+
+-- Глазницы
+local function bigSocket(x)
+    local s = Instance.new("Frame")
+    s.AnchorPoint = Vector2.new(0.5, 0.5)
+    s.Position = UDim2.new(x, 0, 0.38, 0)
+    s.Size = UDim2.fromOffset(62, 70)
+    s.BackgroundColor3 = Color3.fromRGB(25, 20, 20)
+    s.BorderSizePixel = 0
+    s.Parent = head
+    Instance.new("UICorner", s).CornerRadius = UDim.new(0.5, 0)
+end
+bigSocket(0.3)
+bigSocket(0.7)
+
+-- Глаза с красными зрачками (следят за мышью)
+local function bigEye(x)
+    local e = Instance.new("Frame")
+    e.AnchorPoint = Vector2.new(0.5, 0.5)
+    e.Position = UDim2.new(x, 0, 0.38, 0)
+    e.Size = UDim2.fromOffset(44, 52)
+    e.BackgroundColor3 = Color3.fromRGB(245, 240, 232)
+    e.BorderSizePixel = 0
+    e.ZIndex = 2
+    e.Parent = head
+    Instance.new("UICorner", e).CornerRadius = UDim.new(0.5, 0)
+
+    local p = Instance.new("Frame")
+    p.AnchorPoint = Vector2.new(0.5, 0.5)
+    p.Position = UDim2.new(0.5, 0, 0.5, 0)
+    p.Size = UDim2.fromOffset(14, 14)
+    p.BackgroundColor3 = Color3.fromRGB(190, 20, 20)
+    p.BorderSizePixel = 0
+    p.ZIndex = 3
+    p.Parent = e
+    Instance.new("UICorner", p).CornerRadius = UDim.new(1, 0)
+
+    return p
+end
+
+local fpL = bigEye(0.3)
+local fpR = bigEye(0.7)
+
+-- Кровавые подтёки из глаз
+local function blood(x)
+    local b = Instance.new("Frame")
+    b.AnchorPoint = Vector2.new(0.5, 0)
+    b.Position = UDim2.new(x, 0, 0.52, 0)
+    b.Size = UDim2.fromOffset(8, 55)
+    b.BackgroundColor3 = Color3.fromRGB(150, 10, 10)
+    b.BorderSizePixel = 0
+    b.ZIndex = 2
+    b.Parent = head
+    Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)
+    local g = Instance.new("UIGradient")
+    g.Rotation = 90
+    g.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0),
+        NumberSequenceKeypoint.new(1, 1),
+    })
+    g.Parent = b
+end
+blood(0.3)
+blood(0.7)
+
+-- Рот с зубами
+local mouth = Instance.new("Frame")
+mouth.AnchorPoint = Vector2.new(0.5, 0.5)
+mouth.Position = UDim2.new(0.5, 0, 0.78, 0)
+mouth.Size = UDim2.fromOffset(110, 26)
+mouth.BackgroundColor3 = Color3.fromRGB(15, 8, 8)
+mouth.BorderSizePixel = 0
+mouth.ZIndex = 2
+mouth.Parent = head
+Instance.new("UICorner", mouth).CornerRadius = UDim.new(0.5, 0)
+
+for i = 0, 5 do
+    local t = Instance.new("Frame")
+    t.Size = UDim2.fromOffset(10, 14)
+    t.Position = UDim2.new(0.06 + i * 0.15, 0, 0, 1)
+    t.BackgroundColor3 = Color3.fromRGB(230, 225, 210)
+    t.BorderSizePixel = 0
+    t.ZIndex = 3
+    t.Parent = mouth
+    Instance.new("UICorner", t).CornerRadius = UDim.new(0, 3)
+
+    local t2 = t:Clone()
+    t2.Position = UDim2.new(0.06 + i * 0.15, 0, 1, -15)
+    t2.Parent = mouth
+end
+
+setFace = function(state)
+    face.Visible = state
+end
+
+-- Лицо ТРЯСЁТСЯ
+RunService.RenderStepped:Connect(function()
+    if face.Visible then
+        face.Position = UDim2.new(0.5, math.random(-5, 5), 0.5, math.random(-5, 5))
+        face.Rotation = math.random(-25, 25) / 10
+    end
+end)
+
+-- Иногда лицо "кричит" — рот распахивается
+task.spawn(function()
+    while gui.Parent do
+        if face.Visible and math.random() < 0.12 then
+            TweenService:Create(mouth, TweenInfo.new(0.1), {Size = UDim2.fromOffset(120, 70)}):Play()
+            task.wait(0.5)
+            TweenService:Create(mouth, TweenInfo.new(0.4), {Size = UDim2.fromOffset(110, 26)}):Play()
+        end
+        task.wait(math.random(20, 60) / 100)
+    end
+end)
+
+--================ СВЁРТЫВАНИЕ В КРУГ ================--
+local circle = Instance.new("Frame")
+circle.Size = UDim2.fromOffset(44, 44)
+circle.Position = UDim2.new(0, 30, 0.5, -22)
+circle.BackgroundColor3 = C_BG
+circle.BorderSizePixel = 0
+circle.Visible = false
+circle.ZIndex = 60
+circle.Active = true
+circle.Parent = gui
+Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
+
+local cstroke = Instance.new("UIStroke")
+cstroke.Color = C_GLOW
+cstroke.Thickness = 2
+cstroke.Parent = circle
+
+local cEye = Instance.new("Frame")
+cEye.Size = UDim2.fromOffset(22, 11)
+cEye.Position = UDim2.new(0.5, 0, 0.5, 0)
+cEye.AnchorPoint = Vector2.new(0.5, 0.5)
+cEye.BackgroundColor3 = Color3.fromRGB(240, 235, 235)
+cEye.BorderSizePixel = 0
+cEye.ZIndex = 61
+cEye.Parent = circle
+Instance.new("UICorner", cEye).CornerRadius = UDim.new(1, 0)
+
+local cPupil = Instance.new("Frame")
+cPupil.Size = UDim2.fromOffset(5, 5)
+cPupil.Position = UDim2.new(0.5, 0, 0.5, 0)
+cPupil.AnchorPoint = Vector2.new(0.5, 0.5)
+cPupil.BackgroundColor3 = C_GLOW
+cPupil.BorderSizePixel = 0
+cPupil.ZIndex = 62
+cPupil.Parent = cEye
+Instance.new("UICorner", cPupil).CornerRadius = UDim.new(1, 0)
+
+minBtn.MouseButton1Click:Connect(function()
+    main.Visible = false
+    circle.Visible = true
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+    setESP(false)
+    setMonsterESP(false)
+    setItemESP(false)
+    applyFullbright(false)
+    applyDay(false)
+    setNoclip(false)
+    setGod(false)
+    gui:Destroy()
+end)
+
+--================ ХОРРОР-АТМОСФЕРА ================--
+local specs = {
+    {size = UDim2.new(1, 0, 0, 140), pos = UDim2.new(0, 0, 0, 0),    rot = 90},
+    {size = UDim2.new(1, 0, 0, 140), pos = UDim2.new(0, 0, 1, -140), rot = 270},
+    {size = UDim2.new(0, 140, 1, 0), pos = UDim2.new(0, 0, 0, 0),    rot = 0},
+    {size = UDim2.new(0, 140, 1, 0), pos = UDim2.new(1, -140, 0, 0), rot = 180},
+}
+
+local horrorBars = {}
+for _, sp in ipairs(specs) do
+    local bar = Instance.new("Frame")
+    bar.Size = sp.size
+    bar.Position = sp.pos
+    bar.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    bar.BackgroundTransparency = 1
+    bar.BorderSizePixel = 0
+    bar.ZIndex = 50
+    bar.Visible = false
+    bar.Parent = gui
+
+    local g = Instance.new("UIGradient")
+    g.Rotation = sp.rot
+    g.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.35),
+        NumberSequenceKeypoint.new(1, 1),
+    })
+    g.Parent = bar
+
+    table.insert(horrorBars, bar)
+end
+
+task.spawn(function()
+    while gui.Parent do
+        if horrorEnabled then
+            for _, bar in ipairs(horrorBars) do bar.Visible = true end
+            for i = 1, 4 do TweenService:Create(horrorBars[i], TweenInfo.new(0.12), {BackgroundTransparency = 0}):Play() end
+            task.wait(0.14)
+            for i = 1, 4 do TweenService:Create(horrorBars[i], TweenInfo.new(0.15), {BackgroundTransparency = 0.45}):Play() end
+            task.wait(0.18)
+            for i = 1, 4 do TweenService:Create(horrorBars[i], TweenInfo.new(0.12), {BackgroundTransparency = 0}):Play() end
+            task.wait(0.14)
+            for i = 1, 4 do TweenService:Create(horrorBars[i], TweenInfo.new(0.7), {BackgroundTransparency = 0.85}):Play() end
+            task.wait(0.7)
+        else
+            for _, bar in ipairs(horrorBars) do bar.Visible = false end
+            task.wait(0.3)
+        end
+    end
+end)
+
+-- Глаза следят за мышью (шапка + круг + лицо)
+RunService.RenderStepped:Connect(function()
+    for _, pupil in ipairs({pupilL, pupilR, cPupil, fpL, fpR}) do
+        local eye = pupil.Parent
+        local center = eye.AbsolutePosition + eye.AbsoluteSize / 2
+        local dir = Vector2.new(Mouse.X, Mouse.Y) - center
+        local mag = dir.Magnitude
+        if mag > 1 then
+            local power = math.min(mag, 80) / 80 * 6
+            pupil.Position = UDim2.new(0.5, dir.Unit.X * power, 0.5, dir.Unit.Y * power)
+        end
+    end
+end)
+
+-- Моргание глаз в шапке
+task.spawn(function()
+    while gui.Parent do
+        task.wait(math.random(15, 45) / 10)
+        TweenService:Create(eyeL, TweenInfo.new(0.07), {Size = UDim2.fromOffset(26, 2)}):Play()
+        TweenService:Create(eyeR, TweenInfo.new(0.07), {Size = UDim2.fromOffset(26, 2)}):Play()
+        task.wait(0.1)
+        TweenService:Create(eyeL, TweenInfo.new(0.09), {Size = UDim2.fromOffset(26, 15)}):Play()
+        TweenService:Create(eyeR, TweenInfo.new(0.09), {Size = UDim2.fromOffset(26, 15)}):Play()
+    end
+end)
+
+-- Рамка "дышит"
+task.spawn(function()
+    while gui.Parent do
+        TweenService:Create(stroke, TweenInfo.new(1.2), {Transparency = 0.55}):Play()
+        task.wait(1.2)
+        TweenService:Create(stroke, TweenInfo.new(1.2), {Transparency = 0.1}):Play()
+        task.wait(1.2)
+    end
+end)
+
+-- Infinite Ammo — цикл
+task.spawn(function()
+    while gui.Parent do
+        if ammoEnabled then
+            local char = LocalPlayer.Character
+            for _, tool in ipairs(LocalPlayer.Backpack:GetChildren()) do
+                if tool:IsA("Tool") then fillAmmoOn(tool) end
+            end
+            if char then
+                for _, tool in ipairs(char:GetChildren()) do
+                    if tool:IsA("Tool") then fillAmmoOn(tool) end
+                end
+            end
+        end
+        task.wait(0.25)
+    end
+end)
+
+-- Чистка удалённых монстров/предметов
+task.spawn(function()
+    while true do
+        task.wait(5)
+        for m in pairs(monsterHighlights) do
+            if not m.Parent then removeMonsterESP(m) end
+        end
+        for o in pairs(itemHighlights) do
+            if not o.Parent or not o:IsDescendantOf(workspace) then removeItemESP(o) end
+        end
+    end
+end)
+
+-- Перетаскивание окна и круга
+local dragging, dragStart, startPos
+top.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging, dragStart, startPos = true, input.Position, main.Position
+    end
+end)
+
+local circleDrag, circleStart, circleStartPos
+circle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        circleDrag, circleStart, circleStartPos = true, input.Position, circle.Position
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+        if circleDrag then
+            if circleStart and (input.Position - circleStart).Magnitude < 6 then
+                circle.Visible = false
+                main.Visible = true
+            end
+            circleDrag = false
+        end
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if not (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then return end
+    if circleDrag and circleStart then
+        local delta = input.Position - circleStart
+        circle.Position = UDim2.new(circleStartPos.X.Scale, circleStartPos.X.Offset + delta.X, circleStartPos.Y.Scale, circleStartPos.Y.Offset + delta.Y)
+    elseif dragging and dragStart then
+        local delta = input.Position - dragStart
+        main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
